@@ -1,0 +1,39 @@
+{
+	"name": "terrain-ruler",
+	"title": "Terrain Ruler",
+	"description": "Adds a ruler tool that allows you to measure distances taking difficult terrain (provided by the terrain layer module) into account.",
+	"version": "0.0.1",
+	"minimumCoreVersion" : "0.7.9",
+	"compatibleCoreVersion" : "0.7.9",
+	"authors": [
+		{
+			"name": "Manuel Vögele",
+			"email": "develop@manuel-voegele.de",
+			"discord": "Stäbchenfisch#5107"
+		}
+	],
+	"dependencies": [
+		{
+			"name": "TerrainLayer",
+			"type": "module",
+			"manifest": "https://raw.githubusercontent.com/wsaunders1014/TerrainLayer/master/module.json"
+		}
+	],
+	"esmodules": [
+		"src/main.js"
+	],
+	"languages": [
+		{
+			"lang": "en",
+			"name": "English",
+			"path": "lang/en.json"
+		}
+	],
+	"url": "https://github.com/manuelVo/foundryvtt-terrain-ruler",
+	"download": "https://github.com/manuelVo/foundryvtt-terrain-ruler/archive/v0.0.1.zip",
+	"manifest": "https://raw.githubusercontent.com/manuelVo/foundryvtt-terrain-ruler/master/module.json",
+	"readme": "https://github.com/manuelVo/foundryvtt-terrain-ruler/blob/master/README.md",
+	"changelog": "https://github.com/manuelVo/foundryvtt-terrain-ruler/blob/master/CHANGELOG.md",
+	"bugs": "https://github.com/manuelVo/foundryvtt-terrain-ruler/issues",
+	"allowBugReporter": true
+}
