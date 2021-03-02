@@ -21,14 +21,6 @@ Hooks.on("getSceneControlButtons", controls => {
 })
 
 function hookFunctions () {
-	const originalCanvasOnClickLeftHandler = Canvas.prototype._onClickLeft
-	Canvas.prototype._onClickLeft = function (event) {
-		if (game.activeTool === "terrainRuler") {
-			return this.controls.ruler._onClickLeft(event)
-		}
-		return originalCanvasOnClickLeftHandler.call(this, event)
-	}
-
 	const originalCanvasOnDragLeftStartHandler = Canvas.prototype._onDragLeftStart
 	Canvas.prototype._onDragLeftStart = function (event) {
 		if (game.activeTool === "terrainRuler") {
