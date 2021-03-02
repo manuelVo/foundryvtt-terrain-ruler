@@ -5,19 +5,29 @@ patchRulerMeasure()
 
 CONFIG.debug.terrainRuler = false
 
+let terrainRulerTool
+
 Hooks.once("init", () => {
 	hookFunctions()
 })
 
 // Inject Terrain Ruler into
 Hooks.on("getSceneControlButtons", controls => {
-	const terrainRuler = {
-		name: "terrainRuler",
-		title: "terrain-ruler.terrainRuler",
-		icon: "fas fa-hiking",
+	if (!terrainRulerTool) {
+		terrainRulerTool = {
+			name: "terrainRuler",
+			title: "terrain-ruler.terrainRuler",
+			icon: "fas fa-hiking",
+			visible: false,
+		}
 	}
 	const tokenControls = controls.find(group => group.name === "token").tools
-	tokenControls.splice(tokenControls.findIndex(tool => tool.name === "ruler") + 1, 0, terrainRuler)
+	tokenControls.splice(tokenControls.findIndex(tool => tool.name === "ruler") + 1, 0, terrainRulerTool)
+})
+
+Hooks.on("canvasReady", (canvas) => {
+	terrainRulerTool.visible = canvas.grid.type !== CONST.GRID_TYPES.GRIDLESS
+	ui.controls.render()
 })
 
 function hookFunctions () {
