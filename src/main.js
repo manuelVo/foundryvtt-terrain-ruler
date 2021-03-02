@@ -40,10 +40,10 @@ function hookFunctions () {
 		return originalCanvasOnDragLeftStartHandler.call(this, event)
 	}
 
-	const originalRulerOnMouseUpHandler = Ruler.prototype._onMouseUp
-	Ruler.prototype._onMouseUp = function (event) {
+	const originalEndMeasurementHandler = Ruler.prototype._endMeasurement
+	Ruler.prototype._endMeasurement = function (event) {
 		this.isTerrainRuler = false
-		return originalRulerOnMouseUpHandler.call(this, event)
+		return originalEndMeasurementHandler.call(this)
 	}
 
 	const originalRulerHighlightMeasurement = Ruler.prototype._highlightMeasurement
@@ -63,94 +63,94 @@ function hookFunctions () {
 }
 
 function measureDistances(segments) {
-	return segments.map(measureDistance)
-}
-
-function measureDistance(segment) {
 	if (CONFIG.debug.terrainRuler) {
 		if (!debugGraphics) {
 			debugGraphics = canvas.controls.addChild(new PIXI.Graphics())
 		}
 		debugGraphics.clear()
 	}
-	// TODO Hex support
-	const ray = segment.ray
-	ray.terrainRulerSquares = []
-	const start = pixelsToGridPosition(ray.A)
-	const end = pixelsToGridPosition(ray.B)
 
-	// The following code will break if start === end, so we return the trivial result early
-	if (start === end)
-		return 0
+	let noDiagonals = 0
 
-	ray.terrainRulerSquares.push({x: start.x, y: start.y, distance: 0})
+	return segments.map((segment => {
+		// TODO Hex support
+		const ray = segment.ray
+		ray.terrainRulerSquares = []
+		const start = pixelsToGridPosition(ray.A)
+		const end = pixelsToGridPosition(ray.B)
 
-	const direction = {x: Math.sign(end.x - start.x), y: Math.sign(end.y - start.y)}
-	const current = start
-	let distance = 0
+		// The following code will break if start === end, so we return the trivial result early
+		if (start === end)
+			return 0
 
-	// If the ruler is vertical just move along the y axis until we reach our goal
-	if (direction.x === 0) {
-		for (let y = current.y;y !== end.y;y += direction.y) {
-			const cost = canvas.terrain.costGrid[y + direction.y]?.[current.x]?.multiple ?? 1
-			distance += cost * canvas.dimensions.distance
-			ray.terrainRulerSquares.push({x: current.x, y: y + direction.y, distance})
-		}
-	}
-	else {
-		// If the ruler is horizontal we skip calculating diagonals
-		if (direction.y !== 0) {
-			// To handle rulers that are neither horizontal nor vertical we always move along the y axis until the
-			// line of the ruler intersects the next vertical grid line. Then we move one step to the right and continue
-			const line = new Line(start, end)
-			let nextXStepAt = calculateNextXStep(current, line, direction)
-			let noDiagonals = 0
-			while (current.y !== end.y) {
-				let isDiagonal = false
-				if (nextXStepAt === current.y) {
-					current.x += direction.x
-					nextXStepAt = calculateNextXStep(current, line, direction)
-					// If the next step is going along the y axis this is a diagonal so we're doing that step immediately
-					if (nextXStepAt !== current.y) {
-						isDiagonal = true
-						current.y += direction.y
-						// Making a diagonal step forces us to refresh nextXStepAt
-						nextXStepAt = calculateNextXStep(current, line, direction)
-					}
-				}
-				else {
-					current.y += direction.y
-				}
-				if (CONFIG.debug.terrainRuler)
-					debugStep(current.x, current.y, 0x008800)
-				const cost = canvas.terrain.costGrid[current.y]?.[current.x]?.multiple ?? 1
+		ray.terrainRulerSquares.push({x: start.x, y: start.y, distance: 0})
+
+		const direction = {x: Math.sign(end.x - start.x), y: Math.sign(end.y - start.y)}
+		const current = start
+		let distance = 0
+
+		// If the ruler is vertical just move along the y axis until we reach our goal
+		if (direction.x === 0) {
+			for (let y = current.y;y !== end.y;y += direction.y) {
+				const cost = canvas.terrain.costGrid[y + direction.y]?.[current.x]?.multiple ?? 1
 				distance += cost * canvas.dimensions.distance
-				// Handle 5/10/5 rule if enabled
-				if (isDiagonal && canvas.grid.diagonalRule === "5105") {
-					// Every second diagonal costs twice as much
-					noDiagonals += cost
+				ray.terrainRulerSquares.push({x: current.x, y: y + direction.y, distance})
+			}
+		}
+		else {
+			// If the ruler is horizontal we skip calculating diagonals
+			if (direction.y !== 0) {
+				// To handle rulers that are neither horizontal nor vertical we always move along the y axis until the
+				// line of the ruler intersects the next vertical grid line. Then we move one step to the right and continue
+				const line = new Line(start, end)
+				let nextXStepAt = calculateNextXStep(current, line, direction)
+				while (current.y !== end.y) {
+					let isDiagonal = false
+					if (nextXStepAt === current.y) {
+						current.x += direction.x
+						nextXStepAt = calculateNextXStep(current, line, direction)
+						// If the next step is going along the y axis this is a diagonal so we're doing that step immediately
+						if (nextXStepAt !== current.y) {
+							isDiagonal = true
+							current.y += direction.y
+							// Making a diagonal step forces us to refresh nextXStepAt
+							nextXStepAt = calculateNextXStep(current, line, direction)
+						}
+					}
+					else {
+						current.y += direction.y
+					}
+					if (CONFIG.debug.terrainRuler)
+						debugStep(current.x, current.y, 0x008800)
+					const cost = canvas.terrain.costGrid[current.y]?.[current.x]?.multiple ?? 1
+					distance += cost * canvas.dimensions.distance
+					// Handle 5/10/5 rule if enabled
+					if (isDiagonal && canvas.grid.diagonalRule === "5105") {
+						// Every second diagonal costs twice as much
+						noDiagonals += cost
 
-					// How many second diagonals do we have?
-					const diagonalCost = noDiagonals >> 1 // Integer divison by two
-					// Store the remainder
-					noDiagonals %= 2
+						// How many second diagonals do we have?
+						const diagonalCost = noDiagonals >> 1 // Integer divison by two
+						// Store the remainder
+						noDiagonals %= 2
 
-					// Apply the cost for the diagonals
-					distance += diagonalCost * canvas.dimensions.distance
+						// Apply the cost for the diagonals
+						distance += diagonalCost * canvas.dimensions.distance
+					}
+					ray.terrainRulerSquares.push({x: current.x, y: current.y, distance})
 				}
-				ray.terrainRulerSquares.push({x: current.x, y: current.y, distance})
+			}
+
+			// Move along the x axis until the target is reached
+			for (let x = current.x;x !== end.x;x += direction.x) {
+				const cost = canvas.terrain.costGrid[current.y]?.[x + direction.x]?.multiple ?? 1
+				distance += cost * canvas.dimensions.distance
+				ray.terrainRulerSquares.push({x: x + direction.x, y: current.y, distance})
 			}
 		}
 
-		// Move along the x axis until the target is reached
-		for (let x = current.x;x !== end.x;x += direction.x) {
-			const cost = canvas.terrain.costGrid[current.y]?.[x + direction.x]?.multiple ?? 1
-			distance += cost * canvas.dimensions.distance
-			ray.terrainRulerSquares.push({x: x + direction.x, y: current.y, distance})
-		}
-	}
-
-	return distance
+		return distance
+	}))
 }
 
 // Determines at which y-coordinate we need to make our next step along the x axis
