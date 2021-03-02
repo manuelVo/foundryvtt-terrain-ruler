@@ -104,13 +104,15 @@ function measureDistance(segment) {
 			// line of the ruler intersects the next vertical grid line. Then we move one step to the right and continue
 			const line = new Line(start, end)
 			let nextXStepAt = calculateNextXStep(current, line, direction)
+			let noDiagonals = 0
 			while (current.y !== end.y) {
-				// TODO 5/10/5
+				let isDiagonal = false
 				if (nextXStepAt === current.y) {
 					current.x += direction.x
 					nextXStepAt = calculateNextXStep(current, line, direction)
 					// If the next step is going along the y axis this is a diagonal so we're doing that step immediately
 					if (nextXStepAt !== current.y) {
+						isDiagonal = true
 						current.y += direction.y
 						// Making a diagonal step forces us to refresh nextXStepAt
 						nextXStepAt = calculateNextXStep(current, line, direction)
@@ -123,6 +125,19 @@ function measureDistance(segment) {
 					debugStep(current.x, current.y, 0x008800)
 				const cost = canvas.terrain.costGrid[current.y]?.[current.x]?.multiple ?? 1
 				distance += cost * canvas.dimensions.distance
+				// Handle 5/10/5 rule if enabled
+				if (isDiagonal && canvas.grid.diagonalRule === "5105") {
+					// Every second diagonal costs twice as much
+					noDiagonals += cost
+
+					// How many second diagonals do we have?
+					const diagonalCost = noDiagonals >> 1 // Integer divison by two
+					// Store the remainder
+					noDiagonals %= 2
+
+					// Apply the cost for the diagonals
+					distance += diagonalCost * canvas.dimensions.distance
+				}
 				ray.terrainRulerSquares.push({x: current.x, y: current.y, distance})
 			}
 		}
