@@ -4,7 +4,6 @@ import {Line} from "./line.js"
 patchRulerMeasure()
 
 CONFIG.debug.terrainRuler = false
-let debugGraphics = null
 
 Hooks.once("init", () => {
 	hookFunctions()
@@ -64,10 +63,10 @@ function hookFunctions () {
 
 function measureDistances(segments) {
 	if (CONFIG.debug.terrainRuler) {
-		if (!debugGraphics) {
-			debugGraphics = canvas.controls.addChild(new PIXI.Graphics())
+		if (!canvas.terrainRulerDebug?._geometry) {
+			canvas.terrainRulerDebug = canvas.controls.addChild(new PIXI.Graphics())
 		}
-		debugGraphics.clear()
+		canvas.terrainRulerDebug.clear()
 	}
 
 	let noDiagonals = 0
@@ -196,7 +195,6 @@ function pixelsToGridPosition(pos) {
 }
 
 function highlightMeasurement(ray) {
-	console.warn(ray)
 	for (const square of ray.terrainRulerSquares) {
 		const [x, y] = getPixelsFromGridPosition(square.x, square.y);
 		canvas.grid.highlightPosition(this.name, {x, y, color: this.color})
@@ -204,7 +202,7 @@ function highlightMeasurement(ray) {
 }
 
 function debugStep(x, y, color=0x000000, radius=5) {
-	debugGraphics.lineStyle(4, color).drawCircle((x + 0.5) * canvas.grid.size, (y + 0.5) * canvas.grid.size, radius)
+	canvas.terrainRulerDebug.lineStyle(4, color).drawCircle((x + 0.5) * canvas.grid.w, (y + 0.5) * canvas.grid.h, radius)
 }
 
 function strInsertAfter(haystack, needle, strToInsert) {
