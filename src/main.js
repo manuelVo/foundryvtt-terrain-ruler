@@ -191,14 +191,14 @@ function calculateNextXStep(current, line, direction) {
 }
 
 function pixelsToGridPosition(pos) {
-	pos = canvas.grid.grid.getGridPositionFromPixels(pos.x, pos.y)
-	// canvas.grid.grid.getGridPositionFromPixels returns [y, x] for SquareGrid and HexGrid
-	return {x: pos[1], y: pos[0]}
+	const [x, y] = getGridPositionFromPixels(pos.x, pos.y)
+	return {x, y}
 }
 
 function highlightMeasurement(ray) {
+	console.warn(ray)
 	for (const square of ray.terrainRulerSquares) {
-		const [y, x] = canvas.grid.grid.getPixelsFromGridPosition(square.x, square.y);
+		const [x, y] = getPixelsFromGridPosition(square.x, square.y);
 		canvas.grid.highlightPosition(this.name, {x, y, color: this.color})
 	}
 }
@@ -221,4 +221,22 @@ function patchRulerMeasure() {
 
 	code = strInsertAfter(code, "segments, {gridSpaces", ", enableTerrainRuler: this.isTerrainRuler")
 	Ruler.prototype.measure = new Function("destination", "{gridSpaces=true}={}", code)
+}
+
+// Wrapper to fix a FoundryVTT bug that causes the return values of canvas.grid.grid.getPixelsFromGridPosition to be ordered inconsistently
+// https://gitlab.com/foundrynet/foundryvtt/-/issues/4705
+function getPixelsFromGridPosition(xGrid, yGrid) {
+	const [x, y] = canvas.grid.grid.getPixelsFromGridPosition(xGrid, yGrid)
+	if (canvas.grid.type === CONST.GRID_TYPES.SQUARE)
+		return [y, x]
+	return [x, y]
+}
+
+// Wrapper to fix a FoundryVTT bug that causes the return values of canvas.grid.grid.getPixelsFromGridPosition to be ordered inconsistently
+// https://gitlab.com/foundrynet/foundryvtt/-/issues/4705
+function getGridPositionFromPixels(xPixel, yPixel) {
+	const [x, y] = canvas.grid.grid.getGridPositionFromPixels(xPixel, yPixel)
+	if (canvas.grid.type === CONST.GRID_TYPES.SQUARE)
+		return [y, x]
+	return [x, y]
 }
