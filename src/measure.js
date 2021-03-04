@@ -1,3 +1,4 @@
+import {getGridPositionFromPixels} from "./foundry_fixes.js"
 import {Line} from "./line.js"
 
 export function measureDistancesSquare(segments) {
@@ -128,13 +129,4 @@ function pixelsToGridPosition(pos) {
 
 function debugStep(x, y, color=0x000000, radius=5) {
 	canvas.terrainRulerDebug.lineStyle(4, color).drawCircle((x + 0.5) * canvas.grid.w, (y + 0.5) * canvas.grid.h, radius)
-}
-
-// Wrapper to fix a FoundryVTT bug that causes the return values of canvas.grid.grid.getPixelsFromGridPosition to be ordered inconsistently
-// https://gitlab.com/foundrynet/foundryvtt/-/issues/4705
-function getGridPositionFromPixels(xPixel, yPixel) {
-	const [x, y] = canvas.grid.grid.getGridPositionFromPixels(xPixel, yPixel)
-	if (canvas.grid.type === CONST.GRID_TYPES.SQUARE)
-		return [y, x]
-	return [x, y]
 }

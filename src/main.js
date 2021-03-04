@@ -1,3 +1,4 @@
+import {getPixelsFromGridPosition} from "./foundry_fixes.js"
 import {measureDistancesSquare} from "./measure.js"
 
 // Patch the function as early as possible to decrease the chance of anyone having hooked it already
@@ -95,13 +96,4 @@ function patchRulerMeasure() {
 
 	code = strInsertAfter(code, "segments, {gridSpaces", ", enableTerrainRuler: this.isTerrainRuler")
 	Ruler.prototype.measure = new Function("destination", "{gridSpaces=true}={}", code)
-}
-
-// Wrapper to fix a FoundryVTT bug that causes the return values of canvas.grid.grid.getPixelsFromGridPosition to be ordered inconsistently
-// https://gitlab.com/foundrynet/foundryvtt/-/issues/4705
-function getPixelsFromGridPosition(xGrid, yGrid) {
-	const [x, y] = canvas.grid.grid.getPixelsFromGridPosition(xGrid, yGrid)
-	if (canvas.grid.type === CONST.GRID_TYPES.SQUARE)
-		return [y, x]
-	return [x, y]
 }
