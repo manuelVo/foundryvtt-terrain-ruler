@@ -1,3 +1,5 @@
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/staebchenfisch)
+
 # Terrain Ruler
 
 This module makes Foundry's rulers respect difficult terrain that was put down using the [TerrainLayer module](https://foundryvtt.com/packages/TerrainLayer/). In addition, other modules can use it as a library to easily perform measurements that take into account difficult terrain.
