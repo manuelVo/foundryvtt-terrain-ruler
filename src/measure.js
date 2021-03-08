@@ -1,5 +1,6 @@
 import {getGridPositionFromPixels} from "./foundry_fixes.js"
 import {Line} from "./line.js"
+import {calculateVisitedSpaces} from "./foundry_imports.js"
 
 export function measureDistancesSquare(segments) {
 	let noDiagonals = 0
@@ -7,7 +8,7 @@ export function measureDistancesSquare(segments) {
 	return segments.map((segment => {
 		// TODO Hex support
 		const ray = segment.ray
-		ray.terrainRulerSquares = []
+		ray.terrainRulerVisitedSpaces = []
 		const start = pixelsToGridPosition(ray.A)
 		const end = pixelsToGridPosition(ray.B)
 
@@ -15,7 +16,7 @@ export function measureDistancesSquare(segments) {
 		if (start === end)
 			return 0
 
-		ray.terrainRulerSquares.push({x: start.x, y: start.y, distance: 0})
+		ray.terrainRulerVisitedSpaces.push({x: start.x, y: start.y, distance: 0})
 
 		const direction = {x: Math.sign(end.x - start.x), y: Math.sign(end.y - start.y)}
 		const current = start
@@ -26,7 +27,7 @@ export function measureDistancesSquare(segments) {
 			for (let y = current.y;y !== end.y;y += direction.y) {
 				const cost = canvas.terrain.costGrid[y + direction.y]?.[current.x]?.multiple ?? 1
 				distance += cost * canvas.dimensions.distance
-				ray.terrainRulerSquares.push({x: current.x, y: y + direction.y, distance})
+				ray.terrainRulerVisitedSpaces.push({x: current.x, y: y + direction.y, distance})
 			}
 		}
 		else {
@@ -69,7 +70,7 @@ export function measureDistancesSquare(segments) {
 						// Apply the cost for the diagonals
 						distance += diagonalCost * canvas.dimensions.distance
 					}
-					ray.terrainRulerSquares.push({x: current.x, y: current.y, distance})
+					ray.terrainRulerVisitedSpaces.push({x: current.x, y: current.y, distance})
 				}
 			}
 
@@ -77,12 +78,28 @@ export function measureDistancesSquare(segments) {
 			for (let x = current.x;x !== end.x;x += direction.x) {
 				const cost = canvas.terrain.costGrid[current.y]?.[x + direction.x]?.multiple ?? 1
 				distance += cost * canvas.dimensions.distance
-				ray.terrainRulerSquares.push({x: x + direction.x, y: current.y, distance})
+				ray.terrainRulerVisitedSpaces.push({x: x + direction.x, y: current.y, distance})
 			}
 		}
 
 		return distance
 	}))
+}
+
+export function measureDistancesHex(segments) {
+	return segments.map(segment => {
+		const ray = segment.ray
+		calculateVisitedSpaces(ray)
+		let distance = 0
+		console.warn(ray)
+		for (const space of ray.terrainRulerVisitedSpaces) {
+			const cost = canvas.terrain.costGrid[space.y]?.[space.x]?.multiple ?? 1
+			distance += cost * canvas.dimensions.distance
+			space.distance = distance
+		}
+		ray.terrainRulerVisitedSpaces.unshift({...pixelsToGridPosition(ray.A), distance: 0})
+		return distance
+	})
 }
 
 // Determines at which y-coordinate we need to make our next step along the x axis

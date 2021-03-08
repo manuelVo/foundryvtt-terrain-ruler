@@ -1,5 +1,5 @@
 import {getPixelsFromGridPosition} from "./foundry_fixes.js"
-import {measureDistancesSquare} from "./measure.js"
+import {measureDistancesSquare, measureDistancesHex} from "./measure.js"
 
 // Patch the function as early as possible to decrease the chance of anyone having hooked it already
 patchRulerMeasure()
@@ -58,7 +58,7 @@ function hookFunctions () {
 
 	const originalGridLayerMeasureDistances = GridLayer.prototype.measureDistances
 	GridLayer.prototype.measureDistances = function (segments, options={}) {
-		if (!options.enableTerrainRuler)
+		if (this.type === CONST.GRID_TYPES.GRIDLESS || !options.enableTerrainRuler)
 			return originalGridLayerMeasureDistances.call(this, segments, options)
 		return measureDistances(segments)
 	}
@@ -72,12 +72,15 @@ function measureDistances(segments) {
 		canvas.terrainRulerDebug.clear()
 	}
 
-	return measureDistancesSquare(segments)
+	if (canvas.grid.type === CONST.GRID_TYPES.SQUARE)
+		return measureDistancesSquare(segments)
+	else
+		return measureDistancesHex(segments)
 }
 
 function highlightMeasurement(ray) {
-	for (const square of ray.terrainRulerSquares) {
-		const [x, y] = getPixelsFromGridPosition(square.x, square.y);
+	for (const space of ray.terrainRulerVisitedSpaces) {
+		const [x, y] = getPixelsFromGridPosition(space.x, space.y);
 		canvas.grid.highlightPosition(this.name, {x, y, color: this.color})
 	}
 }
