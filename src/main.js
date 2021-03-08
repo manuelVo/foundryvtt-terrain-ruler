@@ -51,6 +51,20 @@ function hookFunctions () {
 			originalRulerHighlightMeasurement.call(this, ray)
 	}
 
+	const originalRulerToJSON = Ruler.prototype.toJSON
+	Ruler.prototype.toJSON = function () {
+		const json = originalRulerToJSON.call(this)
+		json["isTerrainRuler"] = this.isTerrainRuler
+		return json
+	}
+
+	const originalRulerUpdate = Ruler.prototype.update
+	Ruler.prototype.update = function (data) {
+		this.isTerrainRuler = data.isTerrainRuler
+		console.warn(this.isTerrainRuler)
+		originalRulerUpdate.call(this, data)
+	}
+
 	const originalGridLayerMeasureDistances = GridLayer.prototype.measureDistances
 	GridLayer.prototype.measureDistances = function (segments, options={}) {
 		if (this.type === CONST.GRID_TYPES.GRIDLESS || !options.enableTerrainRuler)
