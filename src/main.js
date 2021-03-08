@@ -10,6 +10,7 @@ let terrainRulerTool
 
 Hooks.once("init", () => {
 	hookFunctions()
+	game.terrainRuler = {active: true}
 })
 
 // Inject Terrain Ruler into
@@ -19,7 +20,10 @@ Hooks.on("getSceneControlButtons", controls => {
 			name: "terrainRuler",
 			title: "terrain-ruler.terrainRuler",
 			icon: "fas fa-hiking",
-			visible: false
+			toggle: true,
+			active: game.terrainRuler?.active,
+			onClick: toggled => game.terrainRuler.active = toggled,
+			visible: false,
 		}
 	}
 	const tokenControls = controls.find(group => group.name === "token").tools
@@ -29,7 +33,7 @@ Hooks.on("getSceneControlButtons", controls => {
 function hookFunctions () {
 	const originalCanvasOnDragLeftStartHandler = Canvas.prototype._onDragLeftStart
 	Canvas.prototype._onDragLeftStart = function (event) {
-		if (game.activeTool === "terrainRuler") {
+		if (game.terrainRuler.active) {
 			const ruler = this.controls.ruler
 			ruler.isTerrainRuler = true
 			return ruler._onDragStart(event)
@@ -61,7 +65,6 @@ function hookFunctions () {
 	const originalRulerUpdate = Ruler.prototype.update
 	Ruler.prototype.update = function (data) {
 		this.isTerrainRuler = data.isTerrainRuler
-		console.warn(this.isTerrainRuler)
 		originalRulerUpdate.call(this, data)
 	}
 
