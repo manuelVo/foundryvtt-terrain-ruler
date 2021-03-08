@@ -91,7 +91,6 @@ export function measureDistancesHex(segments) {
 		const ray = segment.ray
 		calculateVisitedSpaces(ray)
 		let distance = 0
-		console.warn(ray)
 		for (const space of ray.terrainRulerVisitedSpaces) {
 			const cost = canvas.terrain.costGrid[space.y]?.[space.x]?.multiple ?? 1
 			distance += cost * canvas.dimensions.distance
