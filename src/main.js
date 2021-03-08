@@ -19,16 +19,11 @@ Hooks.on("getSceneControlButtons", controls => {
 			name: "terrainRuler",
 			title: "terrain-ruler.terrainRuler",
 			icon: "fas fa-hiking",
-			visible: false,
+			visible: false
 		}
 	}
 	const tokenControls = controls.find(group => group.name === "token").tools
 	tokenControls.splice(tokenControls.findIndex(tool => tool.name === "ruler") + 1, 0, terrainRulerTool)
-})
-
-Hooks.on("canvasReady", (canvas) => {
-	terrainRulerTool.visible = canvas.grid.type !== CONST.GRID_TYPES.GRIDLESS
-	ui.controls.render()
 })
 
 function hookFunctions () {
@@ -61,6 +56,13 @@ function hookFunctions () {
 		if (this.type === CONST.GRID_TYPES.GRIDLESS || !options.enableTerrainRuler)
 			return originalGridLayerMeasureDistances.call(this, segments, options)
 		return measureDistances(segments)
+	}
+
+	const originalSceneControlsGetData = SceneControls.prototype.getData
+	SceneControls.prototype.getData = function (options) {
+		if (canvas?.grid?.type !== undefined)
+			terrainRulerTool.visible = canvas?.grid.type !== CONST.GRID_TYPES.GRIDLESS
+		return originalSceneControlsGetData.call(this, options)
 	}
 }
 
