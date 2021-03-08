@@ -10,7 +10,10 @@ let terrainRulerTool
 
 Hooks.once("init", () => {
 	hookFunctions()
-	game.terrainRuler = {active: true}
+	game.terrainRuler = {
+		active: true,
+		measureDistances,
+	}
 })
 
 // Inject Terrain Ruler into
@@ -84,6 +87,9 @@ function hookFunctions () {
 }
 
 function measureDistances(segments) {
+	if (canvas.grid.type === CONST.GRID_TYPES.GRIDLESS)
+		throw new Error("Terrain Ruler's measureDistances function cannot be used on gridless scenes")
+
 	if (CONFIG.debug.terrainRuler) {
 		if (!canvas.terrainRulerDebug?._geometry) {
 			canvas.terrainRulerDebug = canvas.controls.addChild(new PIXI.Graphics())
