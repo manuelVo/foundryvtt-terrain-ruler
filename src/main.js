@@ -36,7 +36,10 @@ Hooks.on("getSceneControlButtons", controls => {
 function hookFunctions () {
 	const originalCanvasOnDragLeftStartHandler = Canvas.prototype._onDragLeftStart
 	Canvas.prototype._onDragLeftStart = function (event) {
-		if (game.terrainRuler.active) {
+		const layer = this.activeLayer
+		const isRuler = game.activeTool === "ruler"
+		const isCtrlRuler = game.keyboard.isCtrl(event) && (layer.name === "TokenLayer")
+		if (game.terrainRuler.active && (isRuler || isCtrlRuler)) {
 			const ruler = this.controls.ruler
 			ruler.isTerrainRuler = true
 			return ruler._onDragStart(event)
