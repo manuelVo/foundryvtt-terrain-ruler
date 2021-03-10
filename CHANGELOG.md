@@ -1,4 +1,4 @@
-## In development
+## 1.1.0
 ### Game Systems
 - Add support for the Pathfinder 2e way of measuring diagonal cost over difficult terrain
 
