@@ -2,7 +2,24 @@ import {getGridPositionFromPixels} from "./foundry_fixes.js"
 import {Line} from "./line.js"
 import {calculateVisitedSpaces} from "./foundry_imports.js"
 
-export function measureDistancesSquare(segments) {
+export function measureDistances(segments) {
+	if (canvas.grid.type === CONST.GRID_TYPES.GRIDLESS)
+		throw new Error("Terrain Ruler's measureDistances function cannot be used on gridless scenes")
+
+	if (CONFIG.debug.terrainRuler) {
+		if (!canvas.terrainRulerDebug?._geometry) {
+			canvas.terrainRulerDebug = canvas.controls.addChild(new PIXI.Graphics())
+		}
+		canvas.terrainRulerDebug.clear()
+	}
+
+	if (canvas.grid.type === CONST.GRID_TYPES.SQUARE)
+		return measureDistancesSquare(segments)
+	else
+		return measureDistancesHex(segments)
+}
+
+function measureDistancesSquare(segments) {
 	let noDiagonals = 0
 
 	return segments.map((segment => {
@@ -86,7 +103,7 @@ export function measureDistancesSquare(segments) {
 	}))
 }
 
-export function measureDistancesHex(segments) {
+function measureDistancesHex(segments) {
 	return segments.map(segment => {
 		const ray = segment.ray
 		calculateVisitedSpaces(ray)

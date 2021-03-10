@@ -1,5 +1,5 @@
 import {getPixelsFromGridPosition} from "./foundry_fixes.js"
-import {measureDistancesSquare, measureDistancesHex} from "./measure.js"
+import {measureDistances} from "./measure.js"
 
 // Patch the function as early as possible to decrease the chance of anyone having hooked it already
 patchRulerMeasure()
@@ -87,23 +87,6 @@ function hookFunctions () {
 			terrainRulerTool.visible = canvas?.grid.type !== CONST.GRID_TYPES.GRIDLESS
 		return originalSceneControlsGetData.call(this, options)
 	}
-}
-
-function measureDistances(segments) {
-	if (canvas.grid.type === CONST.GRID_TYPES.GRIDLESS)
-		throw new Error("Terrain Ruler's measureDistances function cannot be used on gridless scenes")
-
-	if (CONFIG.debug.terrainRuler) {
-		if (!canvas.terrainRulerDebug?._geometry) {
-			canvas.terrainRulerDebug = canvas.controls.addChild(new PIXI.Graphics())
-		}
-		canvas.terrainRulerDebug.clear()
-	}
-
-	if (canvas.grid.type === CONST.GRID_TYPES.SQUARE)
-		return measureDistancesSquare(segments)
-	else
-		return measureDistancesHex(segments)
 }
 
 function highlightMeasurement(ray) {
