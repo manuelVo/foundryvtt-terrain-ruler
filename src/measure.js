@@ -73,18 +73,28 @@ function measureDistancesSquare(segments) {
 						debugStep(current.x, current.y, 0x008800)
 					const cost = canvas.terrain.costGrid[current.y]?.[current.x]?.multiple ?? 1
 					distance += cost * canvas.dimensions.distance
-					// Handle 5/10/5 rule if enabled
-					if (isDiagonal && canvas.grid.diagonalRule === "5105") {
-						// Every second diagonal costs twice as much
-						noDiagonals += cost
 
-						// How many second diagonals do we have?
-						const diagonalCost = noDiagonals >> 1 // Integer divison by two
-						// Store the remainder
-						noDiagonals %= 2
+					// Diagonal Handling
+					if (isDiagonal) {
+						// PF2 diagonal rules
+						if (game.system.id === "pf2e") {
+							distance += noDiagonals * canvas.dimensions.distance
+							noDiagonals = noDiagonals === 1 ? 0 : 1
+						}
+						// Generic 5/10/5 rule
+						else if (canvas.grid.diagonalRule === "5105") {
+							// Every second diagonal costs twice as much
+							noDiagonals += cost
 
-						// Apply the cost for the diagonals
-						distance += diagonalCost * canvas.dimensions.distance
+							// How many second diagonals do we have?
+							const diagonalCost = noDiagonals >> 1 // Integer divison by two
+							// Store the remainder
+							noDiagonals %= 2
+
+							// Apply the cost for the diagonals
+							distance += diagonalCost * canvas.dimensions.distance
+						}
+						// If neither of the above match treat diagonals as regular steps (5/5/5 rule)
 					}
 					ray.terrainRulerVisitedSpaces.push({x: current.x, y: current.y, distance})
 				}
