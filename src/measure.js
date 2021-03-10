@@ -23,7 +23,6 @@ function measureDistancesSquare(segments) {
 	let noDiagonals = 0
 
 	return segments.map((segment => {
-		// TODO Hex support
 		const ray = segment.ray
 		ray.terrainRulerVisitedSpaces = []
 		const start = pixelsToGridPosition(ray.A)
