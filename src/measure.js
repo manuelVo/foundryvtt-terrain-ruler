@@ -55,19 +55,19 @@ function measureDistancesSquare(segments, costFunction) {
 			if (direction.y !== 0) {
 				// To handle rulers that are neither horizontal nor vertical we always move along the y axis until the
 				// line of the ruler intersects the next vertical grid line. Then we move one step to the right and continue
-				const line = new Line(start, end)
-				let nextXStepAt = calculateNextXStep(current, line, direction)
+				const line = new Line(pixelsToDecimalGridPosition(ray.A), pixelsToDecimalGridPosition(ray.B));
+				let nextXStepAt = calculateNextXStep(current, end, line, direction);
 				while (current.y !== end.y) {
 					let isDiagonal = false
 					if (nextXStepAt === current.y) {
 						current.x += direction.x
-						nextXStepAt = calculateNextXStep(current, line, direction)
+						nextXStepAt = calculateNextXStep(current, end, line, direction);
 						// If the next step is going along the y axis this is a diagonal so we're doing that step immediately
 						if (nextXStepAt !== current.y) {
 							isDiagonal = true
 							current.y += direction.y
 							// Making a diagonal step forces us to refresh nextXStepAt
-							nextXStepAt = calculateNextXStep(current, line, direction)
+							nextXStepAt = calculateNextXStep(current, end, line, direction);
 						}
 					}
 					else {
@@ -132,7 +132,10 @@ function measureDistancesHex(segments, costFunction) {
 }
 
 // Determines at which y-coordinate we need to make our next step along the x axis
-function calculateNextXStep(current, line, direction) {
+function calculateNextXStep(current, end, line, direction) {
+	if (current.x === end.x) {
+		return end.y;
+	}
 	const verticalIntersectionY = line.calcY(current.x + direction.x / 2)
 	const horizontalIntersectionX = line.calcX(current.y + direction.y / 2)
 
@@ -141,15 +144,19 @@ function calculateNextXStep(current, line, direction) {
 	if (CONFIG.debug.terrainRuler)
 		debugStep(current.x + direction.x / 2, nextXStepAt, 0x888800, 9)
 
-	// The next step along the x axis calculated above might be one step too early.
+	// The next step along the x axis calculated above might be one step too late.
 	// This happens because the intersection with the vertial indicates that we must move along the y axis.
 	// However most of the line is still in the previous square, so we need to move one additional step along
 	// the x axis to more closely match the path of the line.
 
 	// abs(m) > 1 means that the line moves faster along the y axis than along the x axis
 	if (Math.abs(line.m) > 1) {
-		if ((direction.y > 0 && verticalIntersectionY < nextXStepAt) ||
-		    (direction.y < 0 && verticalIntersectionY > nextXStepAt))
+		// If the last step is along the x axis, force it to become a diagonal
+		if (nextXStepAt === end.y && current.x + direction.x === end.x) {
+			nextXStepAt -= direction.y;
+		}
+		else if ((direction.y > 0 && verticalIntersectionY < nextXStepAt && nextXStepAt - direction.y >= current.y) ||
+		    (direction.y < 0 && verticalIntersectionY > nextXStepAt && nextXStepAt - direction.y <= current.y))
 				nextXStepAt -= direction.y
 	}
 	// In the else case the line moves faster along the x axis than along the y axis
@@ -171,6 +178,10 @@ function calculateNextXStep(current, line, direction) {
 function pixelsToGridPosition(pos) {
 	const [x, y] = getGridPositionFromPixels(pos.x, pos.y)
 	return {x, y}
+}
+
+function pixelsToDecimalGridPosition(pos) {
+	return {x: pos.x / canvas.grid.w - 0.5, y: pos.y / canvas.grid.h - 0.5};
 }
 
 function debugStep(x, y, color=0x000000, radius=5) {
