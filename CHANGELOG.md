@@ -1,4 +1,4 @@
-## In development
+## 1.2.0
 ### New features
 - Now provides a more accurate path on square grids if measurement isn't done from grid center to grid center (doing this is only possible via other modules that use this module's API)
 
