@@ -1,4 +1,4 @@
-## In development
+## 1.2.1
 ### Bugfixes
 - Fixed a bug that made the ruler look broken on gridless maps if Terrain Ruler is installed ([#4](https://github.com/manuelVo/foundryvtt-terrain-ruler/issues/4))
 
