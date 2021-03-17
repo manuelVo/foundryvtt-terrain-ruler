@@ -55,7 +55,7 @@ function hookFunctions () {
 
 	const originalRulerHighlightMeasurement = Ruler.prototype._highlightMeasurement
 	Ruler.prototype._highlightMeasurement = function (ray) {
-		if (this.isTerrainRuler)
+		if (ray.terrainRulerVisitedSpaces)
 			highlightMeasurement.call(this, ray)
 		else
 			originalRulerHighlightMeasurement.call(this, ray)
