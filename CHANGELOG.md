@@ -1,4 +1,4 @@
-## In development
+## 1.2.2
 ### Compatibility
 - Terrain Ruler is now compatible with Hex Token Size Support. For compatibility Hex Token Size Support Version 0.5.5 or higher is required. Thanks to Ourobor for helping making this possible.
 
