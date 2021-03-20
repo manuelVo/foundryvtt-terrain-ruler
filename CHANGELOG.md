@@ -1,3 +1,8 @@
+## In development
+### Compatibility
+- Terrain Ruler is now compatible with Hex Token Size Support. For compatibility Hex Token Size Support Version 0.5.5 or higher is required. Thanks to Ourobor for helping making this possible.
+
+
 ## 1.2.1
 ### Bugfixes
 - Fixed a bug that made the ruler look broken on gridless maps if Terrain Ruler is installed ([#4](https://github.com/manuelVo/foundryvtt-terrain-ruler/issues/4))

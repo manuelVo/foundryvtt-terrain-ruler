@@ -101,6 +101,13 @@ function strInsertAfter(haystack, needle, strToInsert) {
 	return haystack.slice(0, pos) + strToInsert + haystack.slice(pos)
 }
 
+function strInsertBefore(haystack, needle, strToInsert) {
+	const pos = haystack.indexOf(needle);
+	if (pos === -1)
+		return haystack
+	return haystack.slice(0, pos) + strToInsert + haystack.slice(pos);
+}
+
 function patchRulerMeasure() {
 	let code = Ruler.prototype.measure.toString()
 	// Replace CRLF with LF in case foundry.js has CRLF for some reason
@@ -109,5 +116,11 @@ function patchRulerMeasure() {
 	code = code.slice(code.indexOf("\n"), code.lastIndexOf("\n"))
 
 	code = strInsertAfter(code, "segments, {gridSpaces", ", enableTerrainRuler: this.isTerrainRuler")
+
+	// "Hex Token Size Support" support
+	code = strInsertBefore(code, "findMovementToken", "CONFIG.hexSizeSupport.");
+	code = strInsertBefore(code, "getEvenSnappingFlag", "CONFIG.hexSizeSupport.");
+	code = strInsertBefore(code, "findVertexSnapPoint", "CONFIG.hexSizeSupport.");
+
 	Ruler.prototype.measure = new Function("destination", "{gridSpaces=true}={}", code)
 }
