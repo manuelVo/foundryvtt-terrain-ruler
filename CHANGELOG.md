@@ -1,4 +1,4 @@
-## In development
+## 1.2.3
 ### Compatibility
 - Terrain Ruler can now work together with the [Enhanced Terrain Layer module](https://foundryvtt.com/packages/enhanced-terrain-layer). The original TerrainLayer module will stay supported for now as well. ([#7](https://github.com/manuelVo/foundryvtt-terrain-ruler/issues/7))
 
