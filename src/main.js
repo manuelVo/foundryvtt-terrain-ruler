@@ -1,5 +1,5 @@
 import {getPixelsFromGridPosition} from "./foundry_fixes.js"
-import {measureDistances} from "./measure.js"
+import {measureDistances, getCostOriginalTerrainLayer, getCostEnhancedTerrainlayer} from "./measure.js"
 
 // Patch the function as early as possible to decrease the chance of anyone having hooked it already
 patchRulerMeasure()
@@ -14,6 +14,11 @@ Hooks.once("init", () => {
 		active: true,
 		measureDistances,
 	}
+})
+
+Hooks.once("ready", () => {
+	const costFunction = loadDependencies();
+	game.terrainRuler.costFunction = costFunction;
 })
 
 // Inject Terrain Ruler into
@@ -32,6 +37,35 @@ Hooks.on("getSceneControlButtons", controls => {
 	const tokenControls = controls.find(group => group.name === "token").tools
 	tokenControls.splice(tokenControls.findIndex(tool => tool.name === "ruler") + 1, 0, terrainRulerTool)
 })
+
+function loadDependencies () {
+	const enhancedTerrainLayerActive = game.modules.get("enhanced-terrain-layer")?.active;
+	const originalTerrainLayerActive = game.modules.get("TerrainLayer")?.active;
+	if (!enhancedTerrainLayerActive && !originalTerrainLayerActive) {
+		// Dependencies are missing. Show an error message.
+		console.warn("Neither `Enhanced Terrain Layer` nor `TerrainLayer` is active. Terrain Ruler won't function properly.")
+		if (game.user.isGM) {
+			new Dialog({
+				title: game.i18n.localize("terrain-ruler.dependencyDialog.title"),
+				content: `<h2>${game.i18n.localize("terrain-ruler.dependencyDialog.title")}</h2><p>${game.i18n.localize("terrain-ruler.dependencyDialog.text")}</p>`,
+				buttons: {
+					ok: {
+						icon: '<i class="fas fa-check"></i>',
+						label: game.i18n.localize("terrain-ruler.dependencyDialog.button"),
+					}
+				}
+			}).render(true);
+		}
+		return undefined;
+	}
+	if (enhancedTerrainLayerActive) {
+		if (originalTerrainLayerActive) {
+			console.warn("The modules `TerrainLayer` and `Enhanced Terrain Layer` are both active. Terrain Ruler will use `Enhanced Terrain Layer`.");
+		}
+		return getCostEnhancedTerrainlayer;
+	}
+	return getCostOriginalTerrainLayer;
+}
 
 function hookFunctions () {
 	const originalCanvasOnDragLeftStartHandler = Canvas.prototype._onDragLeftStart

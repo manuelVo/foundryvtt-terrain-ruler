@@ -1,3 +1,8 @@
+## In development
+### Compatibility
+- Terrain Ruler can now work together with the [Enhanced Terrain Layer module](https://foundryvtt.com/packages/enhanced-terrain-layer). The original TerrainLayer module will stay supported for now as well. ([#7](https://github.com/manuelVo/foundryvtt-terrain-ruler/issues/7))
+
+
 ## 1.2.2
 ### Compatibility
 - Terrain Ruler is now compatible with Hex Token Size Support. For compatibility Hex Token Size Support Version 0.5.5 or higher is required. Thanks to Ourobor for helping making this possible.

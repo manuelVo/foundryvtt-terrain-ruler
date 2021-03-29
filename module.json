@@ -12,13 +12,6 @@
 			"discord": "Stäbchenfisch#5107"
 		}
 	],
-	"dependencies": [
-		{
-			"name": "TerrainLayer",
-			"type": "module",
-			"manifest": "https://raw.githubusercontent.com/wsaunders1014/TerrainLayer/master/module.json"
-		}
-	],
 	"esmodules": [
 		"src/main.js"
 	],
