@@ -24,7 +24,7 @@ Hooks.once("init", () => {
 
 Hooks.once("ready", () => {
 	const costFunction = loadDependencies();
-	window.terrainRuler.costFunction = costFunction;
+	window.terrainRuler.getCost = costFunction;
 })
 
 // Inject Terrain Ruler into
