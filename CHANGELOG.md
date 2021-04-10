@@ -1,6 +1,7 @@
 ## In development
 ### API changes
 - Terrain Ruler's API now is just called `terrainRuler` instead of `game.terrainRuler`. `game.terrainRuler` will continue to work until the next major release.
+- `terrainRuler.getCost` now accepts options that will be passed to the active terrain layer module, if supported.
 
 
 ## 1.2.3

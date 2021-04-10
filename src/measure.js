@@ -19,12 +19,12 @@ export function measureDistances(segments, {costFunction=terrainRuler.costFuncti
 		return measureDistancesHex(segments, costFunction)
 }
 
-export function getCostOriginalTerrainLayer(x, y) {
+export function getCostOriginalTerrainLayer(x, y, options={}) {
 	return canvas.terrain.costGrid[y]?.[x]?.multiple ?? 1
 }
 
-export function getCostEnhancedTerrainlayer(x, y) {
-	return canvas.terrain.cost({x, y});
+export function getCostEnhancedTerrainlayer(x, y, options={}) {
+	return canvas.terrain.cost({x, y}, options);
 }
 
 function measureDistancesSquare(segments, costFunction) {
