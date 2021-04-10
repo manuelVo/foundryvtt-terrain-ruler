@@ -1,3 +1,8 @@
+## In development
+### API changes
+- Terrain Ruler's API now is just called `terrainRuler` instead of `game.terrainRuler`. `game.terrainRuler` will continue to work until the next major release.
+
+
 ## 1.2.3
 ### Compatibility
 - Terrain Ruler can now work together with the [Enhanced Terrain Layer module](https://foundryvtt.com/packages/enhanced-terrain-layer). The original TerrainLayer module will stay supported for now as well. ([#7](https://github.com/manuelVo/foundryvtt-terrain-ruler/issues/7))

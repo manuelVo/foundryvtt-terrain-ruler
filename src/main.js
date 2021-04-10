@@ -10,15 +10,21 @@ let terrainRulerTool
 
 Hooks.once("init", () => {
 	hookFunctions()
-	game.terrainRuler = {
+	window.terrainRuler = {
 		active: true,
 		measureDistances,
-	}
+	};
+	Object.defineProperty(game, "terrainRuler", {
+		get: function() {
+			console.warn("Terrain Ruler | `game.terrainLayer` is deprecated and will be removed in a future version. Use `terrainLayer` or `window.terrainLayer` instead.");
+			return window.terrainRuler;
+		}
+	});
 })
 
 Hooks.once("ready", () => {
 	const costFunction = loadDependencies();
-	game.terrainRuler.costFunction = costFunction;
+	window.terrainRuler.costFunction = costFunction;
 })
 
 // Inject Terrain Ruler into
@@ -29,8 +35,8 @@ Hooks.on("getSceneControlButtons", controls => {
 			title: "terrain-ruler.terrainRuler",
 			icon: "fas fa-hiking",
 			toggle: true,
-			active: game.terrainRuler?.active,
-			onClick: toggled => game.terrainRuler.active = toggled,
+			active: terrainRuler?.active,
+			onClick: toggled => terrainRuler.active = toggled,
 			visible: false,
 		}
 	}
@@ -38,7 +44,7 @@ Hooks.on("getSceneControlButtons", controls => {
 	tokenControls.splice(tokenControls.findIndex(tool => tool.name === "ruler") + 1, 0, terrainRulerTool)
 })
 
-function loadDependencies () {
+function loadDependencies() {
 	const enhancedTerrainLayerActive = game.modules.get("enhanced-terrain-layer")?.active;
 	const originalTerrainLayerActive = game.modules.get("TerrainLayer")?.active;
 	if (!enhancedTerrainLayerActive && !originalTerrainLayerActive) {
@@ -67,13 +73,13 @@ function loadDependencies () {
 	return getCostOriginalTerrainLayer;
 }
 
-function hookFunctions () {
+function hookFunctions() {
 	const originalCanvasOnDragLeftStartHandler = Canvas.prototype._onDragLeftStart
 	Canvas.prototype._onDragLeftStart = function (event) {
 		const layer = this.activeLayer
 		const isRuler = game.activeTool === "ruler"
 		const isCtrlRuler = game.keyboard.isCtrl(event) && (layer.name === "TokenLayer")
-		if (game.terrainRuler.active && (isRuler || isCtrlRuler)) {
+		if (terrainRuler.active && (isRuler || isCtrlRuler)) {
 			const ruler = this.controls.ruler
 			ruler.isTerrainRuler = true
 			return ruler._onDragStart(event)

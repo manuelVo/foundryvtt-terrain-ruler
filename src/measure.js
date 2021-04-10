@@ -2,7 +2,7 @@ import {getGridPositionFromPixels} from "./foundry_fixes.js"
 import {Line} from "./line.js"
 import {calculateVisitedSpaces} from "./foundry_imports.js"
 
-export function measureDistances(segments, {costFunction=game.terrainRuler.costFunction}={}) {
+export function measureDistances(segments, {costFunction=terrainRuler.costFunction}={}) {
 	if (canvas.grid.type === CONST.GRID_TYPES.GRIDLESS)
 		throw new Error("Terrain Ruler's measureDistances function cannot be used on gridless scenes")
 
