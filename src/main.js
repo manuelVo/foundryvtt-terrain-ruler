@@ -16,7 +16,7 @@ Hooks.once("init", () => {
 	};
 	Object.defineProperty(game, "terrainRuler", {
 		get: function() {
-			console.warn("Terrain Ruler | `game.terrainLayer` is deprecated and will be removed in a future version. Use `terrainLayer` or `window.terrainLayer` instead.");
+			console.warn("Terrain Ruler | `game.terrainRuler` is deprecated and will be removed in a future version. Use `terrainRuler` or `window.terrainRuler` instead.");
 			return window.terrainRuler;
 		}
 	});
