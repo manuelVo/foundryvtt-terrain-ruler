@@ -1,6 +1,7 @@
-## In development
+## 1.2.5
 ### Other
 - The deprecation warning in the console now correctly refers to `game.terrainRuler` instead of `game.terrianLayer`.
+
 
 ## 1.2.4
 ### API changes
