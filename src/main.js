@@ -49,7 +49,7 @@ function loadDependencies() {
 	const originalTerrainLayerActive = game.modules.get("TerrainLayer")?.active;
 	if (!enhancedTerrainLayerActive && !originalTerrainLayerActive) {
 		// Dependencies are missing. Show an error message.
-		console.warn("Neither `Enhanced Terrain Layer` nor `TerrainLayer` is active. Terrain Ruler won't function properly.")
+		console.warn("Terrain Ruler | Neither `Enhanced Terrain Layer` nor `TerrainLayer` is active. Terrain Ruler won't function properly.")
 		if (game.user.isGM) {
 			new Dialog({
 				title: game.i18n.localize("terrain-ruler.dependencyDialog.title"),
@@ -66,7 +66,7 @@ function loadDependencies() {
 	}
 	if (enhancedTerrainLayerActive) {
 		if (originalTerrainLayerActive) {
-			console.warn("The modules `TerrainLayer` and `Enhanced Terrain Layer` are both active. Terrain Ruler will use `Enhanced Terrain Layer`.");
+			console.warn("Terrain Ruler | The modules `TerrainLayer` and `Enhanced Terrain Layer` are both active. Terrain Ruler will use `Enhanced Terrain Layer`.");
 		}
 		return getCostEnhancedTerrainlayer;
 	}
