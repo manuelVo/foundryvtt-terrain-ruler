@@ -1,3 +1,8 @@
+## In development
+### API changes
+- Terrain ruler now exposes it's internal state to allow to continue measurements over multiple `measureDistance` calls
+
+
 ## 1.2.5
 ### Other
 - The deprecation warning in the console now correctly refers to `game.terrainRuler` instead of `game.terrianLayer`.

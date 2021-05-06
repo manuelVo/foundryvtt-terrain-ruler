@@ -2,7 +2,7 @@ import {getGridPositionFromPixels} from "./foundry_fixes.js"
 import {Line} from "./line.js"
 import {calculateVisitedSpaces} from "./foundry_imports.js"
 
-export function measureDistances(segments, {costFunction=terrainRuler.getCost}={}) {
+export function measureDistances(segments, options={}) {
 	if (canvas.grid.type === CONST.GRID_TYPES.GRIDLESS)
 		throw new Error("Terrain Ruler's measureDistances function cannot be used on gridless scenes")
 
@@ -14,9 +14,9 @@ export function measureDistances(segments, {costFunction=terrainRuler.getCost}={
 	}
 
 	if (canvas.grid.type === CONST.GRID_TYPES.SQUARE)
-		return measureDistancesSquare(segments, costFunction)
+		return measureDistancesSquare(segments, options)
 	else
-		return measureDistancesHex(segments, costFunction)
+		return measureDistancesHex(segments, options)
 }
 
 export function getCostOriginalTerrainLayer(x, y, options={}) {
@@ -27,8 +27,9 @@ export function getCostEnhancedTerrainlayer(x, y, options={}) {
 	return canvas.terrain.cost({x, y}, options);
 }
 
-function measureDistancesSquare(segments, costFunction) {
-	let noDiagonals = 0
+function measureDistancesSquare(segments, options) {
+	const costFunction = options.costFunction;
+	let noDiagonals = options?.terrainRulerInitialState?.noDiagonals ?? 0;
 
 	return segments.map((segment => {
 		const ray = segment.ray
@@ -116,11 +117,13 @@ function measureDistancesSquare(segments, costFunction) {
 			}
 		}
 
+		ray.terrainRulerFinalState = {noDiagonals};
 		return distance
 	}))
 }
 
-function measureDistancesHex(segments, costFunction) {
+function measureDistancesHex(segments, options) {
+	const costFunction = options.costFunction;
 	return segments.map(segment => {
 		const ray = segment.ray
 		calculateVisitedSpaces(ray)
