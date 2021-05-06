@@ -6,6 +6,9 @@ export function measureDistances(segments, options={}) {
 	if (canvas.grid.type === CONST.GRID_TYPES.GRIDLESS)
 		throw new Error("Terrain Ruler's measureDistances function cannot be used on gridless scenes")
 
+	if (!options.costFunction)
+		options.costFunction = terrainRuler.getCost
+
 	if (CONFIG.debug.terrainRuler) {
 		if (!canvas.terrainRulerDebug?._geometry) {
 			canvas.terrainRulerDebug = canvas.controls.addChild(new PIXI.Graphics())
