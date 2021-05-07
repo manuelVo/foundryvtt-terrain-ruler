@@ -7,8 +7,10 @@ patchRulerMeasure()
 CONFIG.debug.terrainRuler = false
 
 let terrainRulerTool
+export let oldTerrainLayerActive;
 
 Hooks.once("init", () => {
+	oldTerrainLayerActive = game.modules.get("TerrainLayer")?.active && !game.modules.get("enhanced-terrain-layer")?.active;
 	hookFunctions()
 	window.terrainRuler = {
 		active: true,
@@ -37,7 +39,7 @@ Hooks.on("getSceneControlButtons", controls => {
 			toggle: true,
 			active: terrainRuler?.active,
 			onClick: toggled => terrainRuler.active = toggled,
-			visible: false,
+			visible: true,
 		}
 	}
 	const tokenControls = controls.find(group => group.name === "token").tools
@@ -116,15 +118,16 @@ function hookFunctions() {
 
 	const originalGridLayerMeasureDistances = GridLayer.prototype.measureDistances
 	GridLayer.prototype.measureDistances = function (segments, options={}) {
-		if (this.type === CONST.GRID_TYPES.GRIDLESS || !options.enableTerrainRuler)
+		if (!options.enableTerrainRuler || oldTerrainLayerActive && this.type === CONST.GRID_TYPES.GRIDLESS)
 			return originalGridLayerMeasureDistances.call(this, segments, options)
 		return measureDistances(segments)
 	}
 
 	const originalSceneControlsGetData = SceneControls.prototype.getData
 	SceneControls.prototype.getData = function (options) {
-		if (canvas?.grid?.type !== undefined)
-			terrainRulerTool.visible = canvas?.grid.type !== CONST.GRID_TYPES.GRIDLESS
+		if (canvas?.grid?.type !== undefined) {
+			terrainRulerTool.visible = !oldTerrainLayerActive || canvas?.grid.type !== CONST.GRID_TYPES.GRIDLESS;
+		}
 		return originalSceneControlsGetData.call(this, options)
 	}
 }

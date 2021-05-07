@@ -1,10 +1,11 @@
 import {getGridPositionFromPixels} from "./foundry_fixes.js"
-import {Line} from "./line.js"
 import {calculateVisitedSpaces} from "./foundry_imports.js"
+import {Arc, Circle, Line, Segment, toRad} from "./geometry.js"
+import {oldTerrainLayerActive} from "./main.js"
 
 export function measureDistances(segments, options={}) {
-	if (canvas.grid.type === CONST.GRID_TYPES.GRIDLESS)
-		throw new Error("Terrain Ruler's measureDistances function cannot be used on gridless scenes")
+	if (oldTerrainLayerActive && canvas.grid.type === CONST.GRID_TYPES.GRIDLESS)
+		throw new Error("Terrain Ruler's measureDistances function cannot be used on gridless scenes when the original TerrainLayer module is active. To measure difficult terrain on gridless scenes use the Enhanced Terrain Layer module instead of TerrainLayer.")
 
 	if (!options.costFunction)
 		options.costFunction = terrainRuler.getCost
@@ -18,6 +19,8 @@ export function measureDistances(segments, options={}) {
 
 	if (canvas.grid.type === CONST.GRID_TYPES.SQUARE)
 		return measureDistancesSquare(segments, options)
+	else if (canvas.grid.type === CONST.GRID_TYPES.GRIDLESS)
+		return measureDistancesGridless(segments, options);
 	else
 		return measureDistancesHex(segments, options)
 }
@@ -63,7 +66,7 @@ function measureDistancesSquare(segments, options) {
 			if (direction.y !== 0) {
 				// To handle rulers that are neither horizontal nor vertical we always move along the y axis until the
 				// line of the ruler intersects the next vertical grid line. Then we move one step to the right and continue
-				const line = new Line(pixelsToDecimalGridPosition(ray.A), pixelsToDecimalGridPosition(ray.B));
+				const line = Line.fromPoints(pixelsToDecimalGridPosition(ray.A), pixelsToDecimalGridPosition(ray.B));
 				let nextXStepAt = calculateNextXStep(current, end, line, direction);
 				while (current.y !== end.y) {
 					let isDiagonal = false
@@ -141,6 +144,99 @@ function measureDistancesHex(segments, options) {
 	})
 }
 
+function measureDistancesGridless(segments, options) {
+	const costFunction = options.costFunction;
+
+	const terrainEdges = collectTerrainEdges();
+	if (CONFIG.debug.terrainRuler)
+		debugEdges(terrainEdges);
+
+	return segments.map(segment => {
+		const ray = segment.ray;
+		const rulerSegment = Segment.fromPoints(ray.A, ray.B);
+		const intersections = terrainEdges.map(edge => edge.intersection(rulerSegment)).flat().filter(point => point !== null);
+		intersections.push(ray.A);
+		intersections.push(ray.B);
+		if (rulerSegment.isVertical) {
+			intersections.sort((a, b) => Math.abs(a.y - ray.A.y) - Math.abs(b.y - ray.A.y));
+		}
+		else {
+			intersections.sort((a, b) => Math.abs(a.x - ray.A.x) - Math.abs(b.x - ray.A.x));
+		}
+		if (CONFIG.debug.terrainRuler)
+			intersections.forEach(intersection => debugStep(intersection.x, intersection.y));
+		const distance = Array.from(iteratePairs(intersections)).reduce((distance, [start, end]) => {
+			let segmentLength;
+			if (start.x === end.x)
+				segmentLength = Math.abs(start.y - end.y);
+			else if (start.y === end.y)
+				segmentLength = Math.abs(start.x - end.x);
+			else
+				segmentLength = Math.sqrt(Math.pow(start.x - end.x, 2) + Math.pow(start.y - end.y, 2));
+			const cost = costFunction((start.x + end.x) / 2, (start.y + end.y) / 2);
+			if (CONFIG.debug.terrainRuler)
+				canvas.terrainRulerDebug.lineStyle(2, cost === 1 ? 0x009900 : 0x990000).drawPolygon([start.x, start.y, end.x, end.y]);
+			return distance + segmentLength * cost;
+		}, 0);
+
+		return distance / canvas.dimensions.size * canvas.dimensions.distance;
+	});
+}
+
+// Collects the edges of all sources of terrain in one array
+function collectTerrainEdges() {
+	const terrainEdges = canvas.terrain.placeables.reduce((edges, terrain) => edges.concat(getEdgesFromPolygon(terrain)), []);
+	const templateEdges = canvas.templates.placeables.reduce((edges, template) => {
+		const shape = template.shape;
+		if (template.data.t === "cone") {
+			const radius = template.data.distance * canvas.dimensions.size / canvas.dimensions.distance;
+			const direction = toRad(template.data.direction + 180);
+			const angle = toRad(template.data.angle);
+			const startDirection = direction - angle / 2;
+			const endDirection = direction + angle / 2;
+			edges = edges.concat([
+				new Arc({x: template.data.x, y: template.data.y}, radius, direction, angle),
+				Segment.fromPoints({x: template.data.x, y: template.data.y}, {x: template.data.x - Math.cos(startDirection) * radius, y: template.data.y - Math.sin(startDirection) * radius}),
+				Segment.fromPoints({x: template.data.x, y: template.data.y}, {x: template.data.x - Math.cos(endDirection) * radius, y: template.data.y - Math.sin(endDirection) * radius}),
+			]);
+		}
+		else if (shape instanceof PIXI.Polygon) {
+			edges = edges.concat(getEdgesFromPolygon(template));
+		}
+		else if (shape instanceof PIXI.Circle) {
+			edges.push(new Circle({x: template.x + shape.x, y: template.y + shape.y}, shape.radius));
+		}
+		else if (shape instanceof NormalizedRectangle) {
+			const points = [
+				{x: template.x + shape.x, y: template.y + shape.y},
+				{x: template.x + shape.x + shape.width, y: template.y + shape.y},
+				{x: template.x + shape.x + shape.width, y: template.y + shape.y + shape.height},
+				{x: template.x + shape.x, y: template.y + shape.y + shape.height},
+			];
+			edges = edges.concat([
+				Segment.fromPoints(points[0], points[1]),
+				Segment.fromPoints(points[1], points[2]),
+				Segment.fromPoints(points[2], points[3]),
+				Segment.fromPoints(points[3], points[0]),
+			]);
+		}
+		else {
+			console.warn("Terrain Ruler | Unkown measurement template shape ignored", shape);
+		}
+		return edges;
+	}, []);
+	return terrainEdges.concat(templateEdges);
+}
+
+function getEdgesFromPolygon(poly) {
+	const points = poly.shape.points;
+	const edges = [];
+	for (let i = 0;i * 2 < poly.shape.points.length - 2;i++) {
+		edges.push(Segment.fromPoints({x: poly.x + points[i * 2], y: poly.y + points[i * 2 + 1]}, {x: poly.x + points[i * 2 + 2], y: poly.y + points[i * 2 + 3]}));
+	}
+	return edges;
+}
+
 // Determines at which y-coordinate we need to make our next step along the x axis
 function calculateNextXStep(current, end, line, direction) {
 	if (current.x === end.x) {
@@ -194,6 +290,32 @@ function pixelsToDecimalGridPosition(pos) {
 	return {x: pos.x / canvas.grid.w - 0.5, y: pos.y / canvas.grid.h - 0.5};
 }
 
+function* iteratePairs(arr) {
+	for (let i = 0;i < arr.length - 1;i++) {
+		yield [arr[i], arr[i + 1]];
+	}
+}
+
 function debugStep(x, y, color=0x000000, radius=5) {
-	canvas.terrainRulerDebug.lineStyle(4, color).drawCircle((x + 0.5) * canvas.grid.w, (y + 0.5) * canvas.grid.h, radius)
+	if (canvas.grid.type !== CONST.GRID_TYPES.GRIDLESS) {
+		x = (x + 0.5) * canvas.grid.w;
+		y = (y + 0.5) * canvas.grid.h;
+	}
+	canvas.terrainRulerDebug.lineStyle(4, color).drawCircle(x, y, radius);
+}
+
+function debugEdges(edges) {
+	for (const edge of edges) {
+		const painter = canvas.terrainRulerDebug;
+		painter.lineStyle(2, 0x000099)
+		if (edge instanceof Arc) {
+			painter.arc(edge.center.x, edge.center.y, edge.radius, edge.direction - edge.angle / 2 + Math.PI, edge.direction + edge.angle / 2 + Math.PI);
+		}
+		else if (edge instanceof Circle) {
+			painter.drawCircle(edge.center.x, edge.center.y, edge.radius);
+		}
+		else {
+			painter.drawPolygon([edge.p1.x, edge.p1.y, edge.p2.x, edge.p2.y]);
+		}
+	}
 }

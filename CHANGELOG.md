@@ -1,4 +1,7 @@
 ## In development
+### New features
+- Measuring difficult terrain on gridless maps is now supported ([#11](https://github.com/manuelVo/foundryvtt-terrain-ruler/issues/11))
+
 ### API changes
 - Terrain ruler now exposes it's internal state to allow to continue measurements over multiple `measureDistance` calls
 
