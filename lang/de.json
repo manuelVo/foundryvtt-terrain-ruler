@@ -1,0 +1,10 @@
+{
+	"terrain-ruler": {
+		"dependencyDialog": {
+			"button": "Verstanden",
+			"text": "Das <i>Terrain Ruler</i> Modul benötigt, dass entweder das <i>Enhanced Terrain Layer</i> oder das <i>TerrainLayer</i> installiert und aktiviert sind, damit es korrekt funktioniert.",
+			"title": "Fehlende Abhängigkeiten"
+		},
+		"terrainRuler": "Messe die Entfernung mit schwierigem Gelände"
+	}
+}
