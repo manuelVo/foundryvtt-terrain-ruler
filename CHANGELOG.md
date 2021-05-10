@@ -2,6 +2,10 @@
 ### API changes
 - Terrain ruler now exposes it's internal state to allow to continue measurements over multiple `measureDistance` calls
 
+### Translation
+- Added german translation (thanks CarnVanBeck!)
+
+
 
 ## 1.2.5
 ### Other
