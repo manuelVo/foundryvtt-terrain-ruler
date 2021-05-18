@@ -1,4 +1,4 @@
-## In development
+## 1.3.0
 ### New features
 - Measuring difficult terrain on gridless maps is now supported ([#11](https://github.com/manuelVo/foundryvtt-terrain-ruler/issues/11))
 
