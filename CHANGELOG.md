@@ -1,3 +1,10 @@
+## 1.3.1
+### Compatibility
+- Terrian Ruler is now compatible with 0.8.6
+- Support for the old `TerrainLayer` module has been dropped, as that module has been confirmed to not receive updates for 0.8 compatibility. From now on only `Enhanced Terrain Layer` is supported. That module will now be tagged as a dependency.
+- This version drops support for foundry 0.7, to prevent users of the `TerrainLayer` module from updating accidentaly and loosing the `TerrainLayer` support.
+
+
 ## 1.3.0
 ### New features
 - Measuring difficult terrain on gridless maps is now supported ([#11](https://github.com/manuelVo/foundryvtt-terrain-ruler/issues/11))
