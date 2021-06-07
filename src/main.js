@@ -1,5 +1,5 @@
 import {getPixelsFromGridPosition} from "./foundry_fixes.js"
-import {measureDistances, getCostOriginalTerrainLayer, getCostEnhancedTerrainlayer} from "./measure.js"
+import {measureDistances, getCostEnhancedTerrainlayer} from "./measure.js"
 
 // Patch the function as early as possible to decrease the chance of anyone having hooked it already
 patchRulerMeasure()
@@ -7,10 +7,8 @@ patchRulerMeasure()
 CONFIG.debug.terrainRuler = false
 
 let terrainRulerTool
-export let oldTerrainLayerActive;
 
 Hooks.once("init", () => {
-	oldTerrainLayerActive = game.modules.get("TerrainLayer")?.active && !game.modules.get("enhanced-terrain-layer")?.active;
 	hookFunctions()
 	window.terrainRuler = {
 		active: true,
@@ -25,8 +23,7 @@ Hooks.once("init", () => {
 })
 
 Hooks.once("ready", () => {
-	const costFunction = loadDependencies();
-	window.terrainRuler.getCost = costFunction;
+	window.terrainRuler.getCost = getCostEnhancedTerrainlayer;
 })
 
 // Inject Terrain Ruler into
@@ -45,35 +42,6 @@ Hooks.on("getSceneControlButtons", controls => {
 	const tokenControls = controls.find(group => group.name === "token").tools
 	tokenControls.splice(tokenControls.findIndex(tool => tool.name === "ruler") + 1, 0, terrainRulerTool)
 })
-
-function loadDependencies() {
-	const enhancedTerrainLayerActive = game.modules.get("enhanced-terrain-layer")?.active;
-	const originalTerrainLayerActive = game.modules.get("TerrainLayer")?.active;
-	if (!enhancedTerrainLayerActive && !originalTerrainLayerActive) {
-		// Dependencies are missing. Show an error message.
-		console.warn("Terrain Ruler | Neither `Enhanced Terrain Layer` nor `TerrainLayer` is active. Terrain Ruler won't function properly.")
-		if (game.user.isGM) {
-			new Dialog({
-				title: game.i18n.localize("terrain-ruler.dependencyDialog.title"),
-				content: `<h2>${game.i18n.localize("terrain-ruler.dependencyDialog.title")}</h2><p>${game.i18n.localize("terrain-ruler.dependencyDialog.text")}</p>`,
-				buttons: {
-					ok: {
-						icon: '<i class="fas fa-check"></i>',
-						label: game.i18n.localize("terrain-ruler.dependencyDialog.button"),
-					}
-				}
-			}).render(true);
-		}
-		return undefined;
-	}
-	if (enhancedTerrainLayerActive) {
-		if (originalTerrainLayerActive) {
-			console.warn("Terrain Ruler | The modules `TerrainLayer` and `Enhanced Terrain Layer` are both active. Terrain Ruler will use `Enhanced Terrain Layer`.");
-		}
-		return getCostEnhancedTerrainlayer;
-	}
-	return getCostOriginalTerrainLayer;
-}
 
 function hookFunctions() {
 	const originalCanvasOnDragLeftStartHandler = Canvas.prototype._onDragLeftStart
@@ -118,17 +86,9 @@ function hookFunctions() {
 
 	const originalGridLayerMeasureDistances = GridLayer.prototype.measureDistances
 	GridLayer.prototype.measureDistances = function (segments, options={}) {
-		if (!options.enableTerrainRuler || oldTerrainLayerActive && this.type === CONST.GRID_TYPES.GRIDLESS)
+		if (!options.enableTerrainRuler)
 			return originalGridLayerMeasureDistances.call(this, segments, options)
 		return measureDistances(segments)
-	}
-
-	const originalSceneControlsGetData = SceneControls.prototype.getData
-	SceneControls.prototype.getData = function (options) {
-		if (canvas?.grid?.type !== undefined) {
-			terrainRulerTool.visible = !oldTerrainLayerActive || canvas?.grid.type !== CONST.GRID_TYPES.GRIDLESS;
-		}
-		return originalSceneControlsGetData.call(this, options)
 	}
 }
 

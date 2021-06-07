@@ -1,10 +1,5 @@
 {
 	"terrain-ruler": {
-		"dependencyDialog": {
-			"button": "Understood",
-			"text": "The <i>Terrain Ruler</i> module requires either the <i>Enhanced Terrain Layer</i> or the <i>TerrainLayer</i> module to be installed and activated to function properly.",
-			"title": "Missing dependencies"
-		},
 		"terrainRuler": "Measure Distance with Difficult Terrain"
 	}
 }

@@ -1,12 +1,8 @@
 import {getGridPositionFromPixels} from "./foundry_fixes.js"
 import {calculateVisitedSpaces} from "./foundry_imports.js"
 import {Arc, Circle, Line, Segment, toRad} from "./geometry.js"
-import {oldTerrainLayerActive} from "./main.js"
 
 export function measureDistances(segments, options={}) {
-	if (oldTerrainLayerActive && canvas.grid.type === CONST.GRID_TYPES.GRIDLESS)
-		throw new Error("Terrain Ruler's measureDistances function cannot be used on gridless scenes when the original TerrainLayer module is active. To measure difficult terrain on gridless scenes use the Enhanced Terrain Layer module instead of TerrainLayer.")
-
 	if (!options.costFunction)
 		options.costFunction = terrainRuler.getCost
 
@@ -23,10 +19,6 @@ export function measureDistances(segments, options={}) {
 		return measureDistancesGridless(segments, options);
 	else
 		return measureDistancesHex(segments, options)
-}
-
-export function getCostOriginalTerrainLayer(x, y, options={}) {
-	return canvas.terrain.costGrid[y]?.[x]?.multiple ?? 1
 }
 
 export function getCostEnhancedTerrainlayer(x, y, options={}) {
