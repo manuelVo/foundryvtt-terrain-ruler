@@ -63,26 +63,23 @@ function hookFunctions() {
 		return originalEndMeasurementHandler.call(this)
 	}
 
-	const originalRulerHighlightMeasurement = Ruler.prototype._highlightMeasurement
-	Ruler.prototype._highlightMeasurement = function (ray) {
+	libWrapper.register("terrain-ruler", "libRuler.Segment.prototype.highlightMeasurement", function(wrapped, ray=this.ray) {
 		if (ray.terrainRulerVisitedSpaces)
 			highlightMeasurement.call(this, ray)
 		else
-			originalRulerHighlightMeasurement.call(this, ray)
-	}
+			wrapped(ray)
+	}, "MIXED");
 
-	const originalRulerToJSON = Ruler.prototype.toJSON
-	Ruler.prototype.toJSON = function () {
-		const json = originalRulerToJSON.call(this)
+	libWrapper.register("terrain-ruler", "Ruler.prototype.toJSON", function (wrapped) {
+		const json = wrapped()
 		json["isTerrainRuler"] = this.isTerrainRuler
 		return json
-	}
+	}, "WRAPPER");
 
-	const originalRulerUpdate = Ruler.prototype.update
-	Ruler.prototype.update = function (data) {
+	libWrapper.register("terrain-ruler", "Ruler.prototype.update", function (wrapped, data) {
 		this.isTerrainRuler = data.isTerrainRuler
-		originalRulerUpdate.call(this, data)
-	}
+		wrapped(data)
+	});
 
 	const originalGridLayerMeasureDistances = GridLayer.prototype.measureDistances
 	GridLayer.prototype.measureDistances = function (segments, options={}) {
