@@ -1,3 +1,8 @@
+## 1.3.2
+### Compatibility
+- Terrain Ruler is now compatible with 0.8.8
+
+
 ## 1.3.1
 ### Compatibility
 - Terrian Ruler is now compatible with 0.8.6
