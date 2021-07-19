@@ -68,7 +68,7 @@ export class Line {
 	}
 }
 
-export class Segment extends Line {
+export class LineSegment extends Line {
 	constructor(p1, p2, m, b) {
 		super(m, b, p1);
 		this.p2 = p2;
@@ -78,7 +78,7 @@ export class Segment extends Line {
 		// Bring line into y=mx+b form
 		const m = (p1.y - p2.y) / (p1.x - p2.x);
 		const b = p1.y - m * p1.x;
-		return new Segment(p1, p2, m, b);
+		return new LineSegment(p1, p2, m, b);
 	}
 
 	// Assumes 'other' is a segment

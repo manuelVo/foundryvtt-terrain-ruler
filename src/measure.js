@@ -1,6 +1,6 @@
 import {getGridPositionFromPixels} from "./foundry_fixes.js"
 import {calculateVisitedSpaces} from "./foundry_imports.js"
-import {Arc, Circle, Line, Segment, toRad} from "./geometry.js"
+import {Arc, Circle, Line, LineSegment, toRad} from "./geometry.js"
 
 export function measureDistances(segments, options={}) {
 	if (!options.costFunction)
@@ -145,7 +145,7 @@ function measureDistancesGridless(segments, options) {
 
 	return segments.map(segment => {
 		const ray = segment.ray;
-		const rulerSegment = Segment.fromPoints(ray.A, ray.B);
+		const rulerSegment = LineSegment.fromPoints(ray.A, ray.B);
 		const intersections = terrainEdges.map(edge => edge.intersection(rulerSegment)).flat().filter(point => point !== null);
 		intersections.push(ray.A);
 		intersections.push(ray.B);
@@ -188,8 +188,8 @@ function collectTerrainEdges() {
 			const endDirection = direction + angle / 2;
 			edges = edges.concat([
 				new Arc({x: template.data.x, y: template.data.y}, radius, direction, angle),
-				Segment.fromPoints({x: template.data.x, y: template.data.y}, {x: template.data.x - Math.cos(startDirection) * radius, y: template.data.y - Math.sin(startDirection) * radius}),
-				Segment.fromPoints({x: template.data.x, y: template.data.y}, {x: template.data.x - Math.cos(endDirection) * radius, y: template.data.y - Math.sin(endDirection) * radius}),
+				LineSegment.fromPoints({x: template.data.x, y: template.data.y}, {x: template.data.x - Math.cos(startDirection) * radius, y: template.data.y - Math.sin(startDirection) * radius}),
+				LineSegment.fromPoints({x: template.data.x, y: template.data.y}, {x: template.data.x - Math.cos(endDirection) * radius, y: template.data.y - Math.sin(endDirection) * radius}),
 			]);
 		}
 		else if (shape instanceof PIXI.Polygon) {
@@ -206,10 +206,10 @@ function collectTerrainEdges() {
 				{x: template.x + shape.x, y: template.y + shape.y + shape.height},
 			];
 			edges = edges.concat([
-				Segment.fromPoints(points[0], points[1]),
-				Segment.fromPoints(points[1], points[2]),
-				Segment.fromPoints(points[2], points[3]),
-				Segment.fromPoints(points[3], points[0]),
+				LineSegment.fromPoints(points[0], points[1]),
+				LineSegment.fromPoints(points[1], points[2]),
+				LineSegment.fromPoints(points[2], points[3]),
+				LineSegment.fromPoints(points[3], points[0]),
 			]);
 		}
 		else {
@@ -224,7 +224,7 @@ function getEdgesFromPolygon(poly) {
 	const points = poly.shape.points;
 	const edges = [];
 	for (let i = 0;i * 2 < poly.shape.points.length - 2;i++) {
-		edges.push(Segment.fromPoints({x: poly.x + points[i * 2], y: poly.y + points[i * 2 + 1]}, {x: poly.x + points[i * 2 + 2], y: poly.y + points[i * 2 + 3]}));
+		edges.push(LineSegment.fromPoints({x: poly.x + points[i * 2], y: poly.y + points[i * 2 + 1]}, {x: poly.x + points[i * 2 + 2], y: poly.y + points[i * 2 + 3]}));
 	}
 	return edges;
 }
