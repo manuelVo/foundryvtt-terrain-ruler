@@ -48,7 +48,7 @@ function measureDistancesSquare(segments, options) {
 		// If the ruler is vertical just move along the y axis until we reach our goal
 		if (direction.x === 0) {
 			for (let y = current.y;y !== end.y;y += direction.y) {
-				const cost = costFunction(current.x, y + direction.y)
+				const cost = costFunction(current.x, y + direction.y, options)
 				distance += cost * canvas.dimensions.distance
 				ray.terrainRulerVisitedSpaces.push({x: current.x, y: y + direction.y, distance})
 			}
@@ -78,7 +78,7 @@ function measureDistancesSquare(segments, options) {
 					}
 					if (CONFIG.debug.terrainRuler)
 						debugStep(current.x, current.y, 0x008800)
-					const cost = costFunction(current.x, current.y)
+					const cost = costFunction(current.x, current.y, options)
 					distance += cost * canvas.dimensions.distance
 
 					// Diagonal Handling
@@ -109,7 +109,7 @@ function measureDistancesSquare(segments, options) {
 
 			// Move along the x axis until the target is reached
 			for (let x = current.x;x !== end.x;x += direction.x) {
-				const cost = costFunction(x + direction.x, current.y)
+				const cost = costFunction(x + direction.x, current.y, options)
 				distance += cost * canvas.dimensions.distance
 				ray.terrainRulerVisitedSpaces.push({x: x + direction.x, y: current.y, distance})
 			}
@@ -127,7 +127,7 @@ function measureDistancesHex(segments, options) {
 		calculateVisitedSpaces(ray)
 		let distance = 0
 		for (const space of ray.terrainRulerVisitedSpaces) {
-			const cost = costFunction(space.x, space.y)
+			const cost = costFunction(space.x, space.y, options)
 			distance += cost * canvas.dimensions.distance
 			space.distance = distance
 		}
@@ -165,7 +165,7 @@ function measureDistancesGridless(segments, options) {
 				segmentLength = Math.abs(start.x - end.x);
 			else
 				segmentLength = Math.sqrt(Math.pow(start.x - end.x, 2) + Math.pow(start.y - end.y, 2));
-			const cost = costFunction((start.x + end.x) / 2, (start.y + end.y) / 2);
+			const cost = costFunction((start.x + end.x) / 2, (start.y + end.y) / 2, options);
 			if (CONFIG.debug.terrainRuler)
 				canvas.terrainRulerDebug.lineStyle(2, cost === 1 ? 0x009900 : 0x990000).drawPolygon([start.x, start.y, end.x, end.y]);
 			return distance + segmentLength * cost;
