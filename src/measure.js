@@ -13,10 +13,10 @@ export function measureDistances(segments, options={}) {
 		canvas.terrainRulerDebug.clear()
 	}
 
-	if (canvas.grid.type === CONST.GRID_TYPES.SQUARE)
-		return measureDistancesSquare(segments, options)
-	else if (canvas.grid.type === CONST.GRID_TYPES.GRIDLESS)
+	if (canvas.grid.type === CONST.GRID_TYPES.GRIDLESS || options.ignoreGrid)
 		return measureDistancesGridless(segments, options);
+	else if (canvas.grid.type === CONST.GRID_TYPES.SQUARE)
+		return measureDistancesSquare(segments, options)
 	else
 		return measureDistancesHex(segments, options)
 }
