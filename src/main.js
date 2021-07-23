@@ -9,7 +9,6 @@ let terrainRulerTool
 Hooks.once("init", () => {
 	window.terrainRuler = {
 		active: true,
-		measureDistances,
 	};
 	Object.defineProperty(game, "terrainRuler", {
 		get: function() {
