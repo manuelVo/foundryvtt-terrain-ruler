@@ -6,7 +6,7 @@ export function registerRuler() {
 
   // patching to mark when a ruler is using terrain ruler
   // marking the end is probably unnecessary, b/c the ruler is going away
-  libWrapper.register('terrain-ruler', 'Ruler.prototype._endMeasurement', function(wrapper, ...args) {
+  libWrapper.register('terrain-ruler', 'Ruler.prototype._endMeasurement', function(wrapped, ...args) {
     this.isTerrainRuler = false;
     return wrapped(...args);
   }, 'WRAPPER');
@@ -15,7 +15,7 @@ export function registerRuler() {
   // Does this need to wrap all drag left start events ('Canvas.prototype._onDragLeftStart')
   //   or just Ruler._onDragStart?
   // Looks like a control-click on canvas will start the Ruler, so probably the latter.
-  libWrapper.register('terrain-ruler', 'Ruler.prototype._onDragStart', function(wrapper, ...args) {
+  libWrapper.register('terrain-ruler', 'Ruler.prototype._onDragStart', function(wrapped, ...args) {
     // should really be set in the Ruler flag:
     // this.setFlag("terrain-ruler", "isTerrainRuler", terrainRuler.active);
 		this.isTerrainRuler = terrainRuler.active;
@@ -24,14 +24,14 @@ export function registerRuler() {
   }, 'WRAPPER');
 
   // If isTerrainRuler was set in the ruler flag, this would not be necessary
-  libWrapper.register('terrain-ruler', 'Ruler.prototype.toJSON', function(wrapper, ...args) {
+  libWrapper.register('terrain-ruler', 'Ruler.prototype.toJSON', function(wrapped, ...args) {
     const json = wrapped(...args);
     json["isTerrainRuler"] = this.isTerrainRuler;
     return json;
   }, 'WRAPPER');
 
   // If isTerrainRuler was set in the ruler flag, this would not be necessary
-  libWrapper.register('terrain-ruler', 'Ruler.prototype.update', function(wrapper, ...args) {
+  libWrapper.register('terrain-ruler', 'Ruler.prototype.update', function(wrapped, ...args) {
     this.isTerrainRuler = data.isTerrainRuler;
     return wrapped(data);
   });
