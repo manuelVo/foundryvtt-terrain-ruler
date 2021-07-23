@@ -1,183 +1,414 @@
-import {getGridPositionFromPixels} from "./foundry_fixes.js"
-import {calculateVisitedSpaces} from "./foundry_imports.js"
+// import {getGridPositionFromPixels} from "./foundry_fixes.js"
+//import {calculateVisitedSpaces} from "./foundry_imports.js"
 import {Arc, Circle, Line, LineSegment, toRad} from "./geometry.js"
 
-export function measureDistances(segments, options={}) {
-	if (!options.costFunction)
-		options.costFunction = terrainRuler.getCost
 
-	if (CONFIG.debug.terrainRuler) {
+/*
+ * Set the token elevation if there is one at the start of the ruler measure.
+ */
+export function terrainRulerAddProperties(wrapped, ...args) {
+  if(!this.ruler.isTerrainRuler) return wrapped(...args);
+
+  if(this.segment_num === 0) {
+    const t = this.ruler._getMovementToken();
+    const e = t ? getProperty(t, "data.elevation") ? undefined;
+    this.ruler.setFlag("terrain-ruler", "starting_token", { id: t?.id, elevation: e });
+
+    // If gridless, we will need the terrain edges.
+    // Ruler segments are re-created on a new measurement, so it will hopefully be okay
+    // to locate the terrain edges once now rather than for every segment.
+    // While tokens, templates, or terrains could all
+    // move during measurement, it is arguably reasonable to make the user re-do the
+    // measure at that point. I *think* that re-starting a measure should reflect recent
+    // changes to the map... testing will tell
+
+    if(canvas.grid.type === CONST.GRID_TYPES.GRIDLESS) {
+      this.ruler.setFlag("terrain-ruler", "terrain_edges", collectTerrainEdges(t.id));
+      if (CONFIG.debug.terrainRuler)
+		    debugEdges(this.getFlag("terrain-ruler", "terrain_edges"));
+      }
+
+  } else {
+    // pass the flags through to subsequent segments in the chain
+    this.setFlag("terrain-ruler", "starting_token", this.prior_segment.getFlag("terrain-ruler", "starting_token"));
+    if(canvas.grid.type === CONST.GRID_TYPES.GRIDLESS) {
+      this.setFlag("terrain-ruler", "terrain_edges", this.prior_segment.getFlag("terrain-ruler", "terrain_edges"));
+    }
+  }
+
+  return wrapped(...args);
+}
+
+
+ /*
+  * Modify libRuler's distance measurement to account for terrain.
+  * This will be called when measuring a specific RulerSegment (this).
+  * The physical path is two or more points representing the path for the segment.
+  * In the default case, the physical path would have two points equal to this.ray.A and this.ray.B for the segment.
+  * @param {Number} measured_distance The distance measured for the physical path.
+  * @param {[{x,y,z}]} physical_path  Array of points in {x,y,z} format representing 2+ dimensions. z is optional.
+  * @return {Number} The distance as modified.
+  */
+export function terrainRulerModifyDistanceResult(wrapped, measured_distance, physical_path) {
+  if(!this.ruler.isTerrainRuler) return wrapped(measured_distance, physical_path);
+
+  measured_distance = wrapped(measured_distance, physical_path);
+
+  // if(!this.measure_distance_options.costFunction) {
+//     this.measure_distance_options.costFunction = terrainRuler.getCost;
+//   }
+
+  if (CONFIG.debug.terrainRuler) {
 		if (!canvas.terrainRulerDebug?._geometry) {
 			canvas.terrainRulerDebug = canvas.controls.addChild(new PIXI.Graphics())
 		}
 		canvas.terrainRulerDebug.clear()
 	}
 
-	if (canvas.grid.type === CONST.GRID_TYPES.SQUARE)
-		return measureDistancesSquare(segments, options)
-	else if (canvas.grid.type === CONST.GRID_TYPES.GRIDLESS)
-		return measureDistancesGridless(segments, options);
-	else
-		return measureDistancesHex(segments, options)
+  // Goal here is to take the measured distance and add a terrain multiplier.
+  const token_elevation = game.settings.get("terrain-ruler", "use-elevation") ? this.getFlag("terrain-ruler", "starting_token").elevation : undefined;
+  const total_cost = canvas.grid.type === CONST.GRID_TYPES.GRIDLESS ?
+                       measureCostGridless(physical_path, token_elevation, this.getFlag("terrain-ruler", "terrain_edges")) :
+                       measureCostGridded(physical_path, token_elevation);
+  return measured_distance + total_cost;
 }
+
+ /*
+  * Measure the terrain cost for a given path, potentially accounting for elevation.
+  * This function is only for gridded maps.
+  * Basically, it iterates over the grid using the libRuler generator. At each step,
+  * the cost is obtained for the square. Different movement rules result in slightly
+  * different calculations, but can be broken down into:
+  * 1. equidistant: A move in any direction costs the same, so diagonals can be ignored.
+  * 2. 5105: A move along a diagonal costs a fixed amount, but alternates between more
+  *          and less expensive with additional diagonal moves.
+  * 3. euclidean: A move along a diagonal is the actual physical distance.
+  * For rules that consider the diagonal (5105, euclidean), the cost must be multiplied
+  *   by the specific distance measure for diagonals.
+  * @param { origin: {x: Number, y: Number},
+  *          destination: {x: Number, y: Number}} physical_path Path to be measured
+  * @param {Number|undefined| token_elevation 	Elevation of any starting token.
+  * @return {Number} terrain cost for the move, not counting the base move cost.
+  */
+function measureCostGridded(physical_path, token_elevation) {
+  const ray = new Ray(physical_path.origin, physical_path.destination);
+
+	const gridIter = window.elevationRuler.iterateGridUnderLine(physical_path.origin, physical_path.destination);
+	const starting_elevation = "z" in physical_path ? physical_path.z : token_elevation;
+
+	let total_cost = 0;
+	let num_diagonals = 0;
+	let prior = canvas.grid.grid.getGridPositionFromPixels(physical_path.origin.x, physical_path.origin.y).concat(starting_elevation);
+
+	const cost_calculation_type = game.system.id === "pf2e" ? "equidistant" :
+																!canvas.grid.diagonalRule ? "euclidean" :
+																canvas.grid.diagonalRule === "555" ? "equidistant" :
+																canvas.grid.diagonalRule === "5105" ? "5105" :
+																"euclidean";
+
+	for(const [row, col, elevation] of gridIter) {
+	  if (CONFIG.debug.terrainRuler) {
+	    const [x, y] = canvas.grid.grid.getPixelsFromGridPosition(row, col);
+			debugStep(x, y, 0x008800);
+		}
+
+	  const [rowp, colp, prior_elevation] = prior;
+
+	  if(!game.settings.get("terrain-ruler", "use-elevation")) elevation = undefined;
+
+    const elevation_change = elevation - prior_elevation; // might be NaN or undefined
+		const c = incrementalCost({x: row, y: col}, { elevation: elevation });
+
+		if(cost_calculation_type === "equidistant") {
+			total_cost += equidistantCost(c);
+		} else {
+		  const [rowp, colp] = prior.grid;
+		  const is_diagonal = rowp !== row && colp !== col ||
+		                      (elevation_change && !(rowp === row && colp === col));
+
+
+      if(!is_diagonal) {
+			  total_cost += equidistantCost(c);
+			} else {
+			  num_diagonals += 1;
+			  // diagonal either is a fixed distance by 5105 rule or is euclidean
+				if(cost_calculation_type === "5105") {
+					total_cost += grid5105Cost(c, num_diagonals);
+				} else if(cost_calculation_type === "euclidean") {
+					total_cost += gridEuclideanCost(c, current, prior)
+				} else {
+				  console.error("terrain-ruler|cost calculation type not recognized.");
+				}
+			}
+		}
+
+		prior = current;
+	}
+
+	return total_cost;
+}
+
+
+function equidistantCost(c) {
+  // pf2e: each move adds 5/10/15/etc. for difficult terrain, regardless of direction.
+  // dnd5e 5-5-5: same for purposes of cost; each move adds 5/10/15/etc., regardless of direction
+
+  const grid_distance = canvas.grid.grid.options.dimensions.distance;
+  return c * grid_distance;
+}
+
+function grid5105Cost(c, num_diagonals) {
+  // diagonal is a fixed distance
+  let mult = 0;
+	if(num_diagonals % 2 === 0) {
+		// even number: double cost in default, single otherwise
+		mult = game.settings.get("terrain-ruler", "15-15-15") ? 1 : 2;
+	} else {
+	  mult = game.settings.get("terrain-ruler", "15-15-15") ? 2 : 1;
+	}
+	return equidistantCost(c) * mult;
+}
+
+function gridEuclideanCost(c, current, prior) {
+  const [row, col, current_elevation] = current;
+  const [rowp, colp, prior_elevation] = prior;
+
+  // Euclidean: need the actual distance measured for the step
+	const p_step = canvas.grid.grid.getPixelsFromGridPosition(row, col);
+	const p_prior = canvas.grid.grid.getPixelsFromGridPosition(rowp, colp);
+
+	if(game.settings.get("terrain-ruler", "use-elevation")) {
+		p_step.z = current_elevation || 0;
+		p_prior.z = prior_elevation || 0;
+	}
+
+  // Elevation Ruler will override calculateDistance for 3-D points; otherwise ignored.
+	const step_distance = window.libRuler.RulerUtilities.calculateDistance(p_prior, p_step);
+	return c * step_distance;
+}
+
+
+ /*
+  * Measure the cost for movement on terrain on a gridless map.
+  * Basic solution is to determine when the path intersects the edge of terrain, and
+  *   calculate the portion of the distance within the terrain.
+  * Terrain is actually 3-D (has min and max elevation, so basically a cubic shape).
+  *   So if the segment is within the 2d terrain polygon, determine if the line will
+  *   go above or below the terrain at some point.
+  * If considering tokens as difficult terrain, must locate intersections for any tokens.
+  *   Consider a 3-D bounding box to have a bottom equal to the token elevation, and extend
+  *   upwards as high as the token is wide or high.
+  * @param { origin: {x: Number, y: Number},
+  *          destination: {x: Number, y: Number}} physical_path Path to be measured
+  * @param {Number|undefined| token_elevation 	Elevation of any starting token.
+  * @return {Number} terrain cost for the move, not counting the base move cost.
+  */
+function measureCostGridless(physical_path, token_elevation, terrainEdges) {
+
+  const path_dist2d = window.libRuler.RulerUtilities.calculateDistance({ x: physical_path.origin.x, y: physical_path.origin.y },
+                                                                       { x: physical_path.origin.x, y: physical_path.destination.y });
+
+  if(game.settings.get("terrain-ruler", "use-elevation")) {
+    if(!("z" in physical_path.origin)) {
+      physical_path.origin.z = token_elevation || 0;
+    }
+
+    if(!("z" in physical_path.destination)) {
+      physical_path.destination.z = token_elevation || 0;
+    }
+  }
+
+  const elevation_change = physical_path.destination.z - physical_path.origin.z;
+
+  if (CONFIG.debug.terrainRuler)
+		debugEdges(terrainEdges);
+
+  const ray = new Ray(physical_path.origin, physical_path.destination);
+	const rulerSegment = LineSegment.fromPoints(ray.A, ray.B);
+	const intersections = terrainEdges.map(edge => edge.intersection(rulerSegment)).flat().filter(point => point !== null);
+	intersections.push(ray.A);
+	intersections.push(ray.B);
+	if (rulerSegment.isVertical) {
+		intersections.sort((a, b) => Math.abs(a.y - ray.A.y) - Math.abs(b.y - ray.A.y));
+	}
+	else {
+		intersections.sort((a, b) => Math.abs(a.x - ray.A.x) - Math.abs(b.x - ray.A.x));
+	}
+	if (CONFIG.debug.terrainRuler)
+		intersections.forEach(intersection => debugStep(intersection.x, intersection.y));
+
+	const cost = Array.from(iteratePairs(intersections)).reduce((cost, [start, end]) => {
+	  if (CONFIG.debug.terrainRuler)
+			canvas.terrainRulerDebug.lineStyle(2, cost === 1 ? 0x009900 : 0x990000).drawPolygon([start.x, start.y, end.x, end.y]);
+
+		// add elevation
+    // start and end must be on the physical path ray, by definition
+    // change elevation proportionally based on how far along the (2d) physical path we are.
+    // (for lack of a better option)
+    const startLength2d = window.libRuler.RulerUtilities.calculateDistance({ x: physical_path.origin.x, y: physical_path.origin.y }, start);
+    const endLength2d = window.libRuler.RulerUtilities.calculateDistance({ x: physical_path.origin.x, y: physical_path.origin.y }, end);
+
+    start.z = startLength2d / path_dist2d * elevation_change;
+    end.z = startLength2d / path_dist2d * elevation_change;
+
+		const segmentLength = window.libRuler.RulerUtilities.calculateDistance(start, end);
+
+		// right now, terrain layer appears to be ignoring tokens on gridless.
+		// so the cost from above will not account for any tokens at that point.
+		// see line 218 https://github.com/ironmonk88/enhanced-terrain-layer/blob/874efba5d8e31569e3b64fa76376de67b0121693/classes/terrainlayer.js
+    const incremental_cost = game.settings.get("terrain-ruler", "use-elevation") ?
+                               calculateGridless3dTerrainCost(start, end, segmentLength) :
+                               calculateGridlessTerrainCost(start, end, segmentLength);
+
+    return cost + incremental_cost
+	}, 0);
+
+	return cost;
+}
+
+function calculateGridlessTerrainCost(start, end, segmentLength) {
+  const cost_x = (start.x + end.x) / 2;
+	const cost_y = (start.y + end.y) / 2;
+	const mult = incrementalCost(cost_x, cost_y);
+	return segmentLength * mult;
+}
+
+function calculateGridless3dTerrainCost(start, end, segmentLength) {
+  // tricky part: if considering elevation, need to get the terrains/templates/tokens
+	// the segment could exit the terrain at the top or the bottom, in which case only
+	// part of the segment would get the cost.
+	// worse, if multiple terrains, the cost could be different as we move up/down in 3d.
+  const cost_x = (start.x + end.x) / 2;
+	const cost_y = (start.y + end.y) / 2;
+
+	const terrains_at_point = canvas.terrain.terrainFromPixels(cost_x, cost_y);
+	const templates_at_point.concat(templateFromPixels(cost_x, cost_y));
+	const tokens_at_point.concat(tokenFromPixels(cost_x, cost_y));
+
+	const max_elevation = Math.max(start.z, end.z);
+	const min_elevation = Math.min(start.z, end.z);
+
+	// reduce will return 0 if nothing in the array.
+	let cost3d_terrain = terrains_at_point.reduce((cost, terrain) => {
+		const min = terrain.data.min;
+		const max = terrain.data.max;
+		const mult = Math.max(terrain.data.multiple - 1, 0); // remember, looking for the incremental cost
+		return cost + proportionalCost3d(max, min, mult, segmentLength, max_elevation, min_elevation);
+	}, 0);
+
+	cost3d_templates += templates_at_point.reduce((cost, template) => {
+		const min = template.getFlag("enhanced-terrain-layer", "min"); // may be undefined
+		const max = template.getFlag("enhanced-terrain-layer", "max"); // may be undefined
+		const mult = Math.max(0, template.getFlag("enhanced-terrain-layer", "multiple") - 1 || 0); // remember, looking for the incremental cost
+
+		return cost + proportionalCost3d(max, min, mult, segmentLength, max_elevation, min_elevation);
+	});
+
+	cost3d_tokens += tokens_at_point.reduce((cost, token) => {
+		const min = token?.data?.elevation || 0;
+		const max = min + getTokenHeight(token);
+		const mult = game.settings.get("terrain-ruler", "use-tokens") ? 1 : 0; // remember, looking for the incremental cost
+		return cost + proportionalCost3d(max, min, mult, segmentLength, max_elevation, min_elevation);
+	});
+
+	return cost3d_terrain + cost3d_templates + cost3d_tokens;
+
+
+}
+
+function getTokenHeight(token) {
+  // TO-DO: module to allow input of actual token height in a consistent manner
+
+  // pathfinder height: https://www.aonsrd.com/Rules.aspx?ID=133
+  // https://gitlab.com/hooking/foundry-vtt---pathfinder-2e/-/blob/master/src/scripts/config.ts
+  let height;
+	switch(token?.actor?.data?.data?.traits?.size) {
+	  case "grg": height = 48; break; // Pf2e: 32–64'
+		case "huge": height = 24; break;  // PHB p. 191: 15 x 15 square; Pf2e: 16–32'
+		case "lg": height = 12; break;  // PHB p. 191: 10 x 10 square; Pf2e: 8–16'
+		case "med": height = 6; break; // PHB p. 17: 4–8'; PHB p. 191: 5 x 5 square; Pf2e: 4–8'
+		case "sm": height = 3; break;  // PHB p. 17: 2–4'; PHB p. 191: 5 x 5 square; Pf2e: 2–4'
+		case "tiny": height = 1.5; break;  // PHB p. 191: 2.5 x 2.5 square; Pf2e: 1–2'
+	}
+
+  height = height ||  Math.round(Math.max(token.hitArea.height, token.hitArea.width) / canvas.scene.data.grid * canvas.scene.data.gridDistance);
+
+  return height;
+}
+
+function proportionalCost3d(max, min, mult, segmentLength, max_elevation, min_elevation) {
+	if(mult === 0) return 0;
+
+	if((max === undefined || max_elevation < max) &&
+	   (min === undefined || min_elevation > min)) {
+	  // segment entirely within the terrain if terrain has elevation
+		return mult * segmentLength;
+	}
+
+	max = max === undefined ? Number.POSITIVE_INFINITY : max;
+	min = min === undefined ? Number.NEGATIVE_INFINITY : min;
+
+	if(min_elevation > max) return 0; // segment is entirely above the terrain
+	if(max_elevation < min) return 0; // segment is entirely below the terrain
+
+	if(window.libRuler.RulerUtilities.almostEqual(top_e, bottom_e)) return segmentLength * cost;
+
+	// now the hard part. Proportion the segment based on what part(s) are cut off
+	// if the segment runs over the top, find the top part of the segment and trim
+	const total_elevation_shift = Math.abs(max_elevation - min_elevation);
+
+	// elevation is what proportion of the elevation change?
+	const top_trim_elevation = Math.max(max_elevation - max, 0);
+	const top_trim_proportion = trim_elevation / total_elevation_shift
+	const bottom_trim_elevation = Math.max(min - min_elevation, 0);
+	const bottom_trim_proportion = trim_elevation / total_elevation_shift;
+
+	const remainder_dist = segmentLength -
+												 segmentLength * top_trim_proportion -
+												 segmentLength * bottom_trim_proportion;
+
+	return remainder_dist * mult;
+
+}
+
+function templateFromPixels(x, y) {
+	const hx = (x + (canvas.grid.w / 2));
+	const hy = (y + (canvas.grid.h / 2));
+
+	let templates = canvas.templates.placeables.filter(t => {
+			const testX = hx - t.data.x;
+			const testY = hy - t.data.y;
+			return t.shape.contains(testX, testY);
+	});
+
+	return templates;
+}
+
+function tokenFromPixels(x, y) {
+	let tokens = canvas.tokens.placeables.filter(t => {
+    const t_shape = new PIXI.Rectangle(t.x, t.y, t.hitArea.width, t.hitArea.height)
+		return t_shape.contains(x, y);
+	});
+
+	return tokens;
+}
+
+function incrementalCost(x, y, options={}) { return Math.max(0, getCostEnhancedTerrainlayer(x, y, options) - 1); }
+
 
 export function getCostEnhancedTerrainlayer(x, y, options={}) {
 	return canvas.terrain.cost({x, y}, options);
 }
 
-function measureDistancesSquare(segments, options) {
-	const costFunction = options.costFunction;
-	let noDiagonals = options?.terrainRulerInitialState?.noDiagonals ?? 0;
-
-	return segments.map((segment => {
-		const ray = segment.ray
-		ray.terrainRulerVisitedSpaces = []
-		const start = pixelsToGridPosition(ray.A)
-		const end = pixelsToGridPosition(ray.B)
-
-		// The following code will break if start === end, so we return the trivial result early
-		if (start === end)
-			return 0
-
-		ray.terrainRulerVisitedSpaces.push({x: start.x, y: start.y, distance: 0})
-
-		const direction = {x: Math.sign(end.x - start.x), y: Math.sign(end.y - start.y)}
-		const current = start
-		let distance = 0
-
-		// If the ruler is vertical just move along the y axis until we reach our goal
-		if (direction.x === 0) {
-			for (let y = current.y;y !== end.y;y += direction.y) {
-				const cost = costFunction(current.x, y + direction.y)
-				distance += cost * canvas.dimensions.distance
-				ray.terrainRulerVisitedSpaces.push({x: current.x, y: y + direction.y, distance})
-			}
-		}
-		else {
-			// If the ruler is horizontal we skip calculating diagonals
-			if (direction.y !== 0) {
-				// To handle rulers that are neither horizontal nor vertical we always move along the y axis until the
-				// line of the ruler intersects the next vertical grid line. Then we move one step to the right and continue
-				const line = Line.fromPoints(pixelsToDecimalGridPosition(ray.A), pixelsToDecimalGridPosition(ray.B));
-				let nextXStepAt = calculateNextXStep(current, end, line, direction);
-				while (current.y !== end.y) {
-					let isDiagonal = false
-					if (nextXStepAt === current.y) {
-						current.x += direction.x
-						nextXStepAt = calculateNextXStep(current, end, line, direction);
-						// If the next step is going along the y axis this is a diagonal so we're doing that step immediately
-						if (nextXStepAt !== current.y) {
-							isDiagonal = true
-							current.y += direction.y
-							// Making a diagonal step forces us to refresh nextXStepAt
-							nextXStepAt = calculateNextXStep(current, end, line, direction);
-						}
-					}
-					else {
-						current.y += direction.y
-					}
-					if (CONFIG.debug.terrainRuler)
-						debugStep(current.x, current.y, 0x008800)
-					const cost = costFunction(current.x, current.y)
-					distance += cost * canvas.dimensions.distance
-
-					// Diagonal Handling
-					if (isDiagonal) {
-						// PF2 diagonal rules
-						if (game.system.id === "pf2e") {
-							distance += noDiagonals * canvas.dimensions.distance
-							noDiagonals = noDiagonals === 1 ? 0 : 1
-						}
-						// Generic 5/10/5 rule
-						else if (canvas.grid.diagonalRule === "5105") {
-							// Every second diagonal costs twice as much
-							noDiagonals += cost
-
-							// How many second diagonals do we have?
-							const diagonalCost = noDiagonals >> 1 // Integer divison by two
-							// Store the remainder
-							noDiagonals %= 2
-
-							// Apply the cost for the diagonals
-							distance += diagonalCost * canvas.dimensions.distance
-						}
-						// If neither of the above match treat diagonals as regular steps (5/5/5 rule)
-					}
-					ray.terrainRulerVisitedSpaces.push({x: current.x, y: current.y, distance})
-				}
-			}
-
-			// Move along the x axis until the target is reached
-			for (let x = current.x;x !== end.x;x += direction.x) {
-				const cost = costFunction(x + direction.x, current.y)
-				distance += cost * canvas.dimensions.distance
-				ray.terrainRulerVisitedSpaces.push({x: x + direction.x, y: current.y, distance})
-			}
-		}
-
-		ray.terrainRulerFinalState = {noDiagonals};
-		return distance
-	}))
-}
-
-function measureDistancesHex(segments, options) {
-	const costFunction = options.costFunction;
-	return segments.map(segment => {
-		const ray = segment.ray
-		calculateVisitedSpaces(ray)
-		let distance = 0
-		for (const space of ray.terrainRulerVisitedSpaces) {
-			const cost = costFunction(space.x, space.y)
-			distance += cost * canvas.dimensions.distance
-			space.distance = distance
-		}
-		ray.terrainRulerVisitedSpaces.unshift({...pixelsToGridPosition(ray.A), distance: 0})
-		return distance
-	})
-}
-
-function measureDistancesGridless(segments, options) {
-	const costFunction = options.costFunction;
-
-	const terrainEdges = collectTerrainEdges();
-	if (CONFIG.debug.terrainRuler)
-		debugEdges(terrainEdges);
-
-	return segments.map(segment => {
-		const ray = segment.ray;
-		const rulerSegment = LineSegment.fromPoints(ray.A, ray.B);
-		const intersections = terrainEdges.map(edge => edge.intersection(rulerSegment)).flat().filter(point => point !== null);
-		intersections.push(ray.A);
-		intersections.push(ray.B);
-		if (rulerSegment.isVertical) {
-			intersections.sort((a, b) => Math.abs(a.y - ray.A.y) - Math.abs(b.y - ray.A.y));
-		}
-		else {
-			intersections.sort((a, b) => Math.abs(a.x - ray.A.x) - Math.abs(b.x - ray.A.x));
-		}
-		if (CONFIG.debug.terrainRuler)
-			intersections.forEach(intersection => debugStep(intersection.x, intersection.y));
-		const distance = Array.from(iteratePairs(intersections)).reduce((distance, [start, end]) => {
-			let segmentLength;
-			if (start.x === end.x)
-				segmentLength = Math.abs(start.y - end.y);
-			else if (start.y === end.y)
-				segmentLength = Math.abs(start.x - end.x);
-			else
-				segmentLength = Math.sqrt(Math.pow(start.x - end.x, 2) + Math.pow(start.y - end.y, 2));
-			const cost = costFunction((start.x + end.x) / 2, (start.y + end.y) / 2);
-			if (CONFIG.debug.terrainRuler)
-				canvas.terrainRulerDebug.lineStyle(2, cost === 1 ? 0x009900 : 0x990000).drawPolygon([start.x, start.y, end.x, end.y]);
-			return distance + segmentLength * cost;
-		}, 0);
-
-		return distance / canvas.dimensions.size * canvas.dimensions.distance;
-	});
-}
 
 // Collects the edges of all sources of terrain in one array
-function collectTerrainEdges() {
+function collectTerrainEdges(token_id_to_exclude) {
 	const terrainEdges = canvas.terrain.placeables.reduce((edges, terrain) => edges.concat(getEdgesFromPolygon(terrain)), []);
+	const tokenEdges = canvas.tokens.placeables.reduce((edges, token) => {
+	  if(token.id === token_id_to_exclude) return edges;
+	  return edges.concat(getEdgesFromToken(token));
+	}, []);
+
 	const templateEdges = canvas.templates.placeables.reduce((edges, template) => {
 		const shape = template.shape;
 		if (template.data.t === "cone") {
@@ -229,57 +460,16 @@ function getEdgesFromPolygon(poly) {
 	return edges;
 }
 
-// Determines at which y-coordinate we need to make our next step along the x axis
-function calculateNextXStep(current, end, line, direction) {
-	if (current.x === end.x) {
-		return end.y;
-	}
-	const verticalIntersectionY = line.calcY(current.x + direction.x / 2)
-	const horizontalIntersectionX = line.calcX(current.y + direction.y / 2)
-
-	// The next step along the x axis is gnerally where the line intersects the next vertical grid line
-	let nextXStepAt = Math.round(verticalIntersectionY)
-	if (CONFIG.debug.terrainRuler)
-		debugStep(current.x + direction.x / 2, nextXStepAt, 0x888800, 9)
-
-	// The next step along the x axis calculated above might be one step too late.
-	// This happens because the intersection with the vertial indicates that we must move along the y axis.
-	// However most of the line is still in the previous square, so we need to move one additional step along
-	// the x axis to more closely match the path of the line.
-
-	// abs(m) > 1 means that the line moves faster along the y axis than along the x axis
-	if (Math.abs(line.m) > 1) {
-		// If the last step is along the x axis, force it to become a diagonal
-		if (nextXStepAt === end.y && current.x + direction.x === end.x) {
-			nextXStepAt -= direction.y;
-		}
-		else if ((direction.y > 0 && verticalIntersectionY < nextXStepAt && nextXStepAt - direction.y >= current.y) ||
-		    (direction.y < 0 && verticalIntersectionY > nextXStepAt && nextXStepAt - direction.y <= current.y))
-				nextXStepAt -= direction.y
-	}
-	// In the else case the line moves faster along the x axis than along the y axis
-	else {
-		// If the next step is along the y axis we might need to do some correction
-		if (nextXStepAt !== current.y) {
-			if ((direction.x > 0 && horizontalIntersectionX > current.x) ||
-				(direction.x < 0 && horizontalIntersectionX < current.x))
-				nextXStepAt -= direction.y
-		}
-	}
-	if (CONFIG.debug.terrainRuler) {
-		debugStep(current.x + direction.x / 2, line.calcY(current.x + direction.x / 2))
-		debugStep(current.x + direction.x / 2, nextXStepAt, 0x880000, 9)
-	}
-	return nextXStepAt
-}
-
-function pixelsToGridPosition(pos) {
-	const [x, y] = getGridPositionFromPixels(pos.x, pos.y)
-	return {x, y}
-}
-
-function pixelsToDecimalGridPosition(pos) {
-	return {x: pos.x / canvas.grid.w - 0.5, y: pos.y / canvas.grid.h - 0.5};
+function getEdgesFromToken(token) {
+  const edges = [];
+  // t.x and t.y are upper left corner
+  const x = token.x;
+  const y = token.y
+  const {height, width} = token.hitArea;
+  edges.push(LineSegment.fromPoints({ x: x, y: y }, { x: x + width, y: y }));
+  edges.push(LineSegment.fromPoints({ x: x + width, y: y }, { x: x + width, y: y + height }));
+  edges.push(LineSegment.fromPoints({ x: x + width, y: y + height }, { x: x, y: y + height }));
+  edges.push(LineSegment.fromPoints({ x: x, y: y + height }, { x: x, y: y }));
 }
 
 function* iteratePairs(arr) {
