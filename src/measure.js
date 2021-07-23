@@ -93,7 +93,7 @@ export function terrainRulerModifyDistanceResult(wrapped, measured_distance, phy
 function measureCostGridded(physical_path, token_elevation) {
   const ray = new Ray(physical_path.origin, physical_path.destination);
 
-	const gridIter = window.elevationRuler.iterateGridUnderLine(physical_path.origin, physical_path.destination);
+	const gridIter = window.libRuler.RulerUtilities.iterateGridUnderLine(physical_path.origin, physical_path.destination);
 	const starting_elevation = "z" in physical_path ? physical_path.z : token_elevation;
 
 	let total_cost = 0;
@@ -106,7 +106,8 @@ function measureCostGridded(physical_path, token_elevation) {
 																canvas.grid.diagonalRule === "5105" ? "5105" :
 																"euclidean";
 
-	for(const [row, col, elevation] of gridIter) {
+	for(const current of gridIter) {
+          let [row, col, elevation] = current; 
 	  if (CONFIG.debug.terrainRuler) {
 	    const [x, y] = canvas.grid.grid.getPixelsFromGridPosition(row, col);
 			debugStep(x, y, 0x008800);
@@ -122,7 +123,7 @@ function measureCostGridded(physical_path, token_elevation) {
 		if(cost_calculation_type === "equidistant") {
 			total_cost += equidistantCost(c);
 		} else {
-		  const [rowp, colp] = prior.grid;
+		  const [rowp, colp, elevationp] = prior;
 		  const is_diagonal = rowp !== row && colp !== col ||
 		                      (elevation_change && !(rowp === row && colp === col));
 
