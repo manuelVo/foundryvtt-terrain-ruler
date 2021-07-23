@@ -11,7 +11,7 @@ export function terrainRulerAddProperties(wrapped, ...args) {
 
   if(this.segment_num === 0) {
     const t = this.ruler._getMovementToken();
-    const e = t ? getProperty(t, "data.elevation") ? undefined;
+    const e = t ? getProperty(t, "data.elevation") : undefined;
     this.ruler.setFlag("terrain-ruler", "starting_token", { id: t?.id, elevation: e });
 
     // If gridless, we will need the terrain edges.
@@ -282,8 +282,8 @@ function calculateGridless3dTerrainCost(start, end, segmentLength) {
 	const cost_y = (start.y + end.y) / 2;
 
 	const terrains_at_point = canvas.terrain.terrainFromPixels(cost_x, cost_y);
-	const templates_at_point.concat(templateFromPixels(cost_x, cost_y));
-	const tokens_at_point.concat(tokenFromPixels(cost_x, cost_y));
+	const templates_at_point = templateFromPixels(cost_x, cost_y);
+	const tokens_at_point = tokenFromPixels(cost_x, cost_y);
 
 	const max_elevation = Math.max(start.z, end.z);
 	const min_elevation = Math.min(start.z, end.z);
