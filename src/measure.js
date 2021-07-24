@@ -36,8 +36,8 @@ export function terrainRulerAddProperties(wrapped, ...args) {
     // changes to the map... testing will tell
 
     if(canvas.grid.type === CONST.GRID_TYPES.GRIDLESS) {
-      this.ruler.setFlag("terrain-ruler", "terrain_edges", collectTerrainEdges(t.id));
-      log(`addProperties`, collectTerrainEdges(t.id));
+      this.ruler.setFlag("terrain-ruler", "terrain_edges", collectTerrainEdges(t?.id));
+      log(`addProperties`, collectTerrainEdges(t?.id));
       if (CONFIG.debug.terrainRuler)
 		    debugEdges(this.ruler.getFlag("terrain-ruler", "terrain_edges"));
       }
@@ -282,7 +282,9 @@ function measureCostGridless(physical_path, token_elevation, terrainEdges) {
     start.z = startLength2d / path_dist2d * elevation_change;
     end.z = startLength2d / path_dist2d * elevation_change;
 
-		const segmentLength = window.libRuler.RulerUtilities.calculateDistance(start, end);
+		let segmentLength = window.libRuler.RulerUtilities.calculateDistance(start, end);
+   // adjust segmentLength for the grid scale and size (even gridless maps have Grid Size (pixels) and Grid Scale distance)
+   segmentLength = segmentLength / canvas.scene.data.grid * canvas.scene.data.gridDistance;
 
 		// right now, terrain layer appears to be ignoring tokens on gridless.
 		// so the cost from above will not account for any tokens at that point.
@@ -301,6 +303,8 @@ function calculateGridlessTerrainCost(start, end, segmentLength) {
   const cost_x = (start.x + end.x) / 2;
 	const cost_y = (start.y + end.y) / 2;
 	const mult = incrementalCost(cost_x, cost_y);
+  log(`Gridless Terrain Cost for (${start.x}, ${start.y}) ⇿ (${end.x}, ${end.y}): ${segmentLength} * ${mult}`);
+
 	return segmentLength * mult;
 }
 
@@ -341,6 +345,8 @@ function calculateGridless3dTerrainCost(start, end, segmentLength) {
 		const mult = game.settings.get("terrain-ruler", "use-tokens") ? 1 : 0; // remember, looking for the incremental cost
 		return cost + proportionalCost3d(max, min, mult, segmentLength, max_elevation, min_elevation);
 	});
+
+  log(`Gridless 3d Terrain Cost for (${start.x}, ${start.y}, ${start.z}) ⇿ (${end.x}, ${end.y}, ${end.z}): ${cost3d_terrain}[terrain] + ${cost3d_templates}[template] + ${cost3d_token}[token]`);
 
 	return cost3d_terrain + cost3d_templates + cost3d_tokens;
 
