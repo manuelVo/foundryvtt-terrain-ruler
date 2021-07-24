@@ -37,16 +37,10 @@ export function terrainRulerAddProperties(wrapped, ...args) {
 
     if(canvas.grid.type === CONST.GRID_TYPES.GRIDLESS) {
       this.ruler.setFlag("terrain-ruler", "terrain_edges", collectTerrainEdges(t.id));
+      log(`addProperties`, collectTerrainEdges(t.id));
       if (CONFIG.debug.terrainRuler)
-		    debugEdges(this.getFlag("terrain-ruler", "terrain_edges"));
+		    debugEdges(this.ruler.getFlag("terrain-ruler", "terrain_edges"));
       }
-
-  } else {
-    // pass the flags through to subsequent segments in the chain
-    this.setFlag("terrain-ruler", "starting_token", this.prior_segment.getFlag("terrain-ruler", "starting_token"));
-    if(canvas.grid.type === CONST.GRID_TYPES.GRIDLESS) {
-      this.setFlag("terrain-ruler", "terrain_edges", this.prior_segment.getFlag("terrain-ruler", "terrain_edges"));
-    }
   }
 
   return wrapped(...args);
@@ -83,9 +77,11 @@ export function terrainRulerModifyDistanceResult(wrapped, measured_distance, phy
 	}
 
   // Goal here is to take the measured distance and add a terrain multiplier.
-  const token_elevation = game.settings.get("terrain-ruler", "use-elevation") ? this.getFlag("terrain-ruler", "starting_token").elevation : undefined;
+  const token_elevation = game.settings.get("terrain-ruler", "use-elevation") ? this.ruler.getFlag("terrain-ruler", "starting_token").elevation : undefined;
+  log(`terrain edges`, this.ruler.getFlag("terrain-ruler", "terrain_edges"), this);
+
   const total_cost = canvas.grid.type === CONST.GRID_TYPES.GRIDLESS ?
-                       measureCostGridless(physical_path, token_elevation, this.getFlag("terrain-ruler", "terrain_edges")) :
+                       measureCostGridless(physical_path, token_elevation, this.ruler.getFlag("terrain-ruler", "terrain_edges")) :
                        measureCostGridded(physical_path, token_elevation);
   return measured_distance + total_cost;
 }
@@ -238,6 +234,7 @@ function gridEuclideanCost(c, current, prior) {
   * @return {Number} terrain cost for the move, not counting the base move cost.
   */
 function measureCostGridless(physical_path, token_elevation, terrainEdges) {
+  log(`Starting measureCostGridless with token elevation ${token_elevation}, ${terrainEdges?.length} edges and path (${physical_path.origin.x}, ${physical_path.origin.y}, ${physical_path.origin?.z}) ⇿ (${physical_path.destination.x}, ${physical_path.destination.y}, ${physical_path.destination?.z})`, terrainEdges); 
 
   const path_dist2d = window.libRuler.RulerUtilities.calculateDistance({ x: physical_path.origin.x, y: physical_path.origin.y },
                                                                        { x: physical_path.origin.x, y: physical_path.destination.y });
