@@ -2,6 +2,19 @@
 //import {calculateVisitedSpaces} from "./foundry_imports.js"
 import {Arc, Circle, Line, LineSegment, toRad} from "./geometry.js"
 
+const MODULE_ID = "terrain-ruler";
+//const FORCE_DEBUG = true;
+function log(...args) {
+  try {
+   // const isDebugging = window.DEV?.getPackageDebugValue(MODULE_ID);
+    //console.log(MODULE_ID, '|', `isDebugging: ${isDebugging}.`);
+    //if(CONFIG.debug.terrainRuler) {
+    //if (FORCE_DEBUG || isDebugging) {
+      console.log(MODULE_ID, '|', ...args);
+    //}
+  } catch (e) {}
+}
+
 
 /*
  * Set the token elevation if there is one at the start of the ruler measure.
@@ -50,9 +63,13 @@ export function terrainRulerAddProperties(wrapped, ...args) {
   * @return {Number} The distance as modified.
   */
 export function terrainRulerModifyDistanceResult(wrapped, measured_distance, physical_path) {
-  if(!this.ruler.isTerrainRuler) return wrapped(measured_distance, physical_path);
-
+  log(`Starting modifyDistance. Distance: ${measured_distance}. Physical path: (${physical_path.origin.x}, ${physical_path.origin.y}, ${physical_path.origin?.z}) ⇿ (${physical_path.destination.x}, ${physical_path.destination.y}, ${physical_path.destination?.z})`); 
+  if(!this.ruler.isTerrainRuler) {
+    log("Terrain ruler inactive; returning.");
+    return wrapped(measured_distance, physical_path);
+  }
   measured_distance = wrapped(measured_distance, physical_path);
+  log(`modifyDistance after wrapping. Distance: ${measured_distance}.`); 
 
   // if(!this.measure_distance_options.costFunction) {
 //     this.measure_distance_options.costFunction = terrainRuler.getCost;
@@ -91,7 +108,7 @@ export function terrainRulerModifyDistanceResult(wrapped, measured_distance, phy
   * @return {Number} terrain cost for the move, not counting the base move cost.
   */
 function measureCostGridded(physical_path, token_elevation) {
-  const ray = new Ray(physical_path.origin, physical_path.destination);
+  log(`Starting measureCostGridded with token elevation ${token_elevation} and path (${physical_path.origin.x}, ${physical_path.origin.y}, ${physical_path.origin?.z}) ⇿ (${physical_path.destination.x}, ${physical_path.destination.y}, ${physical_path.destination?.z})`); 
 
 	const gridIter = window.libRuler.RulerUtilities.iterateGridUnderLine(physical_path.origin, physical_path.destination);
 	const starting_elevation = "z" in physical_path ? physical_path.z : token_elevation;
@@ -108,6 +125,7 @@ function measureCostGridded(physical_path, token_elevation) {
 
 	for(const current of gridIter) {
           let [row, col, elevation] = current; 
+          log(`grid [${row}, ${col}] with elevation ${elevation}`);
 	  if (CONFIG.debug.terrainRuler) {
 	    const [x, y] = canvas.grid.grid.getPixelsFromGridPosition(row, col);
 			debugStep(x, y, 0x008800);
@@ -118,7 +136,8 @@ function measureCostGridded(physical_path, token_elevation) {
 	  if(!game.settings.get("terrain-ruler", "use-elevation")) elevation = undefined;
 
     const elevation_change = elevation - prior_elevation; // might be NaN or undefined
-		const c = incrementalCost({x: row, y: col}, { elevation: elevation });
+		const c = incrementalCost(col, row, { elevation: elevation }); // terrain layer flips them for gridded vs. gridless
+                log(`incremental cost at [${row}, ${col}] is ${c}`);
 
 		if(cost_calculation_type === "equidistant") {
 			total_cost += equidistantCost(c);
@@ -153,8 +172,9 @@ function measureCostGridded(physical_path, token_elevation) {
 function equidistantCost(c) {
   // pf2e: each move adds 5/10/15/etc. for difficult terrain, regardless of direction.
   // dnd5e 5-5-5: same for purposes of cost; each move adds 5/10/15/etc., regardless of direction
-
+  
   const grid_distance = canvas.grid.grid.options.dimensions.distance;
+  log(`equidistant cost ${c} * ${grid_distance}`);
   return c * grid_distance;
 }
 
@@ -167,16 +187,22 @@ function grid5105Cost(c, num_diagonals) {
 	} else {
 	  mult = game.settings.get("terrain-ruler", "15-15-15") ? 2 : 1;
 	}
+  log(`5-10-5 cost ${equidistantCost(c)} * ${mult}`); 
+
 	return equidistantCost(c) * mult;
 }
 
 function gridEuclideanCost(c, current, prior) {
   const [row, col, current_elevation] = current;
-  const [rowp, colp, prior_elevation] = prior;
+  const [prior_row, prior_col, prior_elevation] = prior;
+
+  log(`Prior: [${prior_row}, ${prior_col}, ${prior_elevation}], Current: [${row}, ${col}, ${current_elevation}]`);
 
   // Euclidean: need the actual distance measured for the step
-	const p_step = canvas.grid.grid.getPixelsFromGridPosition(row, col);
-	const p_prior = canvas.grid.grid.getPixelsFromGridPosition(rowp, colp);
+  const p_step = {};
+  const p_prior = {};
+  [p_step.x, p_step.y] = canvas.grid.grid.getPixelsFromGridPosition(row, col);
+  [p_prior.x, p_prior.y] = canvas.grid.grid.getPixelsFromGridPosition(prior_row, prior_col);
 
 	if(game.settings.get("terrain-ruler", "use-elevation")) {
 		p_step.z = current_elevation || 0;
@@ -184,7 +210,14 @@ function gridEuclideanCost(c, current, prior) {
 	}
 
   // Elevation Ruler will override calculateDistance for 3-D points; otherwise ignored.
-	const step_distance = window.libRuler.RulerUtilities.calculateDistance(p_prior, p_step);
+  log(`Point Prior: (${p_prior.x}, ${p_prior.y}, ${p_prior.z}), Step: (${p_step.x}, ${p_step.y}, ${p_step.z})`); 
+  let step_distance = window.libRuler.RulerUtilities.calculateDistance(p_prior, p_step);
+
+  // Question: round here or above just before returning the summed costs?
+  step_distance = Math.round(step_distance / canvas.scene.data.grid * canvas.scene.data.gridDistance); // convert pixel distance to grid units 
+  
+
+   log(`euclidean cost ${c} * ${step_distance}`);
 	return c * step_distance;
 }
 
@@ -394,11 +427,17 @@ function tokenFromPixels(x, y) {
 	return tokens;
 }
 
-function incrementalCost(x, y, options={}) { return Math.max(0, getCostEnhancedTerrainlayer(x, y, options) - 1); }
+function incrementalCost(x, y, options={}) { 
+  const cost = getCostEnhancedTerrainlayer(x, y, options);
+  //log(`cost at ${x}, ${y} is ${cost}`, options);
+  // TO-DO: Should the minimum cost be -1 to represent terrain with cost 0? 
+
+  return Math.max(0, cost - 1); 
+}
 
 
 export function getCostEnhancedTerrainlayer(x, y, options={}) {
-	return canvas.terrain.cost({x, y}, options);
+	return canvas.terrain.cost({x: x, y: y}, options);
 }
 
 
