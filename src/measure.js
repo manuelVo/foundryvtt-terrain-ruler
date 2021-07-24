@@ -57,13 +57,13 @@ export function terrainRulerAddProperties(wrapped, ...args) {
   * @return {Number} The distance as modified.
   */
 export function terrainRulerModifyDistanceResult(wrapped, measured_distance, physical_path) {
-  log(`Starting modifyDistance. Distance: ${measured_distance}. Physical path: (${physical_path.origin.x}, ${physical_path.origin.y}, ${physical_path.origin?.z}) ⇿ (${physical_path.destination.x}, ${physical_path.destination.y}, ${physical_path.destination?.z})`); 
+  log(`Starting modifyDistance. Distance: ${measured_distance}. Physical path: (${physical_path.origin.x}, ${physical_path.origin.y}, ${physical_path.origin?.z}) ⇿ (${physical_path.destination.x}, ${physical_path.destination.y}, ${physical_path.destination?.z})`);
   if(!this.ruler.isTerrainRuler) {
     log("Terrain ruler inactive; returning.");
     return wrapped(measured_distance, physical_path);
   }
   measured_distance = wrapped(measured_distance, physical_path);
-  log(`modifyDistance after wrapping. Distance: ${measured_distance}.`); 
+  log(`modifyDistance after wrapping. Distance: ${measured_distance}.`);
 
   // if(!this.measure_distance_options.costFunction) {
 //     this.measure_distance_options.costFunction = terrainRuler.getCost;
@@ -76,13 +76,40 @@ export function terrainRulerModifyDistanceResult(wrapped, measured_distance, phy
 		canvas.terrainRulerDebug.clear()
 	}
 
-  // Goal here is to take the measured distance and add a terrain multiplier.
-  const token_elevation = game.settings.get("terrain-ruler", "use-elevation") ? this.ruler.getFlag("terrain-ruler", "starting_token").elevation : undefined;
+  // Goal:
+  // Determine the incremental cost of the terrain, add it to the measured distance.
+  // Gridded: iterate over the grid using the relevant measure method, determining the
+  //          cost multiplier at each square.
+  // Ungridded: get all the intersections of terrains/templates/tokens for the measured
+  //            line segment. Determine the cost multiplier at each sub-segment between
+  //            intersections.
+  // use-elevation option: If the physical path has a "z" dimension, use it.
+  //                       Otherwise, if the token has an elevation, use it.
+  //                       In either case, consider min and max elevation of
+  //                       terrain/templates/tokens when calculating the cost.
+
+
+  // adjust elevation for starting token in certain cases
+  if(game.settings.get("terrain-ruler", "use-elevation") && physical_path.origin?.z === undefined) {
+    log(`Using token elevation ${this.ruler.getFlag("terrain-ruler", "starting_token").elevation} for origin.`);
+    physical_path.origin.z = this.ruler.getFlag("terrain-ruler", "starting_token").elevation * canvas.scene.data.grid / canvas.scene.data.gridDistance;
+  }
+
+  if(game.settings.get("terrain-ruler", "use-elevation") && physical_path.destination?.z === undefined) {
+    log(`Using token elevation ${this.ruler.getFlag("terrain-ruler", "starting_token").elevation} for destination.`);
+    physical_path.destination.z = this.ruler.getFlag("terrain-ruler", "starting_token").elevation * canvas.scene.data.grid / canvas.scene.data.gridDistance;
+  }
+
+  if(!game.settings.get("terrain-ruler", "use-elevation")) {
+    physical_path.origin.z = undefined;
+    physical_path.destination.z = undefined;
+  }
+
   log(`terrain edges`, this.ruler.getFlag("terrain-ruler", "terrain_edges"), this);
 
   const total_cost = canvas.grid.type === CONST.GRID_TYPES.GRIDLESS ?
-                       measureCostGridless(physical_path, token_elevation, this.ruler.getFlag("terrain-ruler", "terrain_edges")) :
-                       measureCostGridded(physical_path, token_elevation);
+                       measureCostGridless(physical_path, this.ruler.getFlag("terrain-ruler", "terrain_edges")) :
+                       measureCostGridded(physical_path);
   return measured_distance + total_cost;
 }
 
@@ -103,15 +130,14 @@ export function terrainRulerModifyDistanceResult(wrapped, measured_distance, phy
   * @param {Number|undefined| token_elevation 	Elevation of any starting token.
   * @return {Number} terrain cost for the move, not counting the base move cost.
   */
-function measureCostGridded(physical_path, token_elevation) {
-  log(`Starting measureCostGridded with token elevation ${token_elevation} and path (${physical_path.origin.x}, ${physical_path.origin.y}, ${physical_path.origin?.z}) ⇿ (${physical_path.destination.x}, ${physical_path.destination.y}, ${physical_path.destination?.z})`); 
+function measureCostGridded(physical_path) {
+  log(`Starting measureCostGridded with path (${physical_path.origin.x}, ${physical_path.origin.y}, ${physical_path.origin?.z}) ⇿ (${physical_path.destination.x}, ${physical_path.destination.y}, ${physical_path.destination?.z})`);
 
 	const gridIter = window.libRuler.RulerUtilities.iterateGridUnderLine(physical_path.origin, physical_path.destination);
-	const starting_elevation = "z" in physical_path ? physical_path.z : token_elevation;
 
 	let total_cost = 0;
 	let num_diagonals = 0;
-	let prior = canvas.grid.grid.getGridPositionFromPixels(physical_path.origin.x, physical_path.origin.y).concat(starting_elevation);
+	let prior = canvas.grid.grid.getGridPositionFromPixels(physical_path.origin.x, physical_path.origin.y).concat(physical_path.z);
 
 	const cost_calculation_type = game.system.id === "pf2e" ? "equidistant" :
 																!canvas.grid.diagonalRule ? "euclidean" :
@@ -120,27 +146,27 @@ function measureCostGridded(physical_path, token_elevation) {
 																"euclidean";
 
 	for(const current of gridIter) {
-          let [row, col, elevation] = current; 
-          log(`grid [${row}, ${col}] with elevation ${elevation}`);
+    const [row, col, elevation] = current;
+    const [prior_row, prior_col, prior_elevation] = prior;
+
+    log(`grid [${row}, ${col}] with elevation ${elevation}`);
+
 	  if (CONFIG.debug.terrainRuler) {
 	    const [x, y] = canvas.grid.grid.getPixelsFromGridPosition(row, col);
 			debugStep(x, y, 0x008800);
 		}
 
-	  const [rowp, colp, prior_elevation] = prior;
-
-	  if(!game.settings.get("terrain-ruler", "use-elevation")) elevation = undefined;
-
     const elevation_change = elevation - prior_elevation; // might be NaN or undefined
-		const c = incrementalCost(col, row, { elevation: elevation }); // terrain layer flips them for gridded vs. gridless
-                log(`incremental cost at [${row}, ${col}] is ${c}`);
+    const elevation_g = Math.round(elevation_change / canvas.scene.data.grid * canvas.scene.data.gridDistance);
+
+		const c = incrementalCost(col, row, { elevation: elevation_g }); // terrain layer flips them for gridded vs. gridless
+    log(`incremental cost at [${row}, ${col}] is ${c}`);
 
 		if(cost_calculation_type === "equidistant") {
 			total_cost += equidistantCost(c);
 		} else {
-		  const [rowp, colp, elevationp] = prior;
-		  const is_diagonal = rowp !== row && colp !== col ||
-		                      (elevation_change && !(rowp === row && colp === col));
+		  const is_diagonal = prior_row !== row && prior_col !== col ||
+		                      (elevation_change && !(prior_row === row && prior_col === col));
 
 
       if(!is_diagonal) {
@@ -168,7 +194,7 @@ function measureCostGridded(physical_path, token_elevation) {
 function equidistantCost(c) {
   // pf2e: each move adds 5/10/15/etc. for difficult terrain, regardless of direction.
   // dnd5e 5-5-5: same for purposes of cost; each move adds 5/10/15/etc., regardless of direction
-  
+
   const grid_distance = canvas.grid.grid.options.dimensions.distance;
   log(`equidistant cost ${c} * ${grid_distance}`);
   return c * grid_distance;
@@ -183,7 +209,7 @@ function grid5105Cost(c, num_diagonals) {
 	} else {
 	  mult = game.settings.get("terrain-ruler", "15-15-15") ? 2 : 1;
 	}
-  log(`5-10-5 cost ${equidistantCost(c)} * ${mult}`); 
+  log(`5-10-5 cost ${equidistantCost(c)} * ${mult}`);
 
 	return equidistantCost(c) * mult;
 }
@@ -206,12 +232,12 @@ function gridEuclideanCost(c, current, prior) {
 	}
 
   // Elevation Ruler will override calculateDistance for 3-D points; otherwise ignored.
-  log(`Point Prior: (${p_prior.x}, ${p_prior.y}, ${p_prior.z}), Step: (${p_step.x}, ${p_step.y}, ${p_step.z})`); 
+  log(`Point Prior: (${p_prior.x}, ${p_prior.y}, ${p_prior.z}), Step: (${p_step.x}, ${p_step.y}, ${p_step.z})`);
   let step_distance = window.libRuler.RulerUtilities.calculateDistance(p_prior, p_step);
 
   // Question: round here or above just before returning the summed costs?
-  step_distance = Math.round(step_distance / canvas.scene.data.grid * canvas.scene.data.gridDistance); // convert pixel distance to grid units 
-  
+  step_distance = Math.round(step_distance / canvas.scene.data.grid * canvas.scene.data.gridDistance); // convert pixel distance to grid units
+
 
    log(`euclidean cost ${c} * ${step_distance}`);
 	return c * step_distance;
@@ -233,37 +259,26 @@ function gridEuclideanCost(c, current, prior) {
   * @param {Number|undefined| token_elevation 	Elevation of any starting token.
   * @return {Number} terrain cost for the move, not counting the base move cost.
   */
-function measureCostGridless(physical_path, token_elevation, terrainEdges) {
-  log(`Starting measureCostGridless with token elevation ${token_elevation}, ${terrainEdges?.length} edges and path (${physical_path.origin.x}, ${physical_path.origin.y}, ${physical_path.origin?.z}) ⇿ (${physical_path.destination.x}, ${physical_path.destination.y}, ${physical_path.destination?.z})`, terrainEdges); 
+function measureCostGridless(physical_path, terrainEdges) {
+  log(`Starting measureCostGridless with ${terrainEdges?.length} edges and path (${physical_path.origin.x}, ${physical_path.origin.y}, ${physical_path.origin?.z}) ⇿ (${physical_path.destination.x}, ${physical_path.destination.y}, ${physical_path.destination?.z})`, terrainEdges);
 
   const path_dist2d = window.libRuler.RulerUtilities.calculateDistance({ x: physical_path.origin.x, y: physical_path.origin.y },
                                                                        { x: physical_path.origin.x, y: physical_path.destination.y });
-
-  if(game.settings.get("terrain-ruler", "use-elevation")) {
-    if(!("z" in physical_path.origin)) {
-      physical_path.origin.z = token_elevation || 0;
-    }
-
-    if(!("z" in physical_path.destination)) {
-      physical_path.destination.z = token_elevation || 0;
-    }
-  }
-
   const elevation_change = physical_path.destination.z - physical_path.origin.z;
 
   if (CONFIG.debug.terrainRuler)
 		debugEdges(terrainEdges);
 
-  const ray = new Ray(physical_path.origin, physical_path.destination);
-	const rulerSegment = LineSegment.fromPoints(ray.A, ray.B);
+//   const ray = new Ray(physical_path.origin, physical_path.destination);
+	const rulerSegment = LineSegment.fromPoints(physical_path.origin, physical_path.destination);
 	const intersections = terrainEdges.map(edge => edge.intersection(rulerSegment)).flat().filter(point => point !== null);
-	intersections.push(ray.A);
-	intersections.push(ray.B);
+	intersections.push(physical_path.origin);
+	intersections.push(physical_path.destination);
 	if (rulerSegment.isVertical) {
-		intersections.sort((a, b) => Math.abs(a.y - ray.A.y) - Math.abs(b.y - ray.A.y));
+		intersections.sort((a, b) => Math.abs(a.y - physical_path.origin.y) - Math.abs(b.y - physical_path.origin.y));
 	}
 	else {
-		intersections.sort((a, b) => Math.abs(a.x - ray.A.x) - Math.abs(b.x - ray.A.x));
+		intersections.sort((a, b) => Math.abs(a.x - physical_path.origin.x) - Math.abs(b.x - physical_path.origin.x));
 	}
 	if (CONFIG.debug.terrainRuler)
 		intersections.forEach(intersection => debugStep(intersection.x, intersection.y));
@@ -431,12 +446,12 @@ function tokenFromPixels(x, y) {
 	return tokens;
 }
 
-function incrementalCost(x, y, options={}) { 
+function incrementalCost(x, y, options={}) {
   const cost = getCostEnhancedTerrainlayer(x, y, options);
   //log(`cost at ${x}, ${y} is ${cost}`, options);
-  // TO-DO: Should the minimum cost be -1 to represent terrain with cost 0? 
+  // TO-DO: Should the minimum cost be -1 to represent terrain with cost 0?
 
-  return Math.max(0, cost - 1); 
+  return Math.max(0, cost - 1);
 }
 
 
