@@ -90,20 +90,26 @@ export function terrainRulerModifyDistanceResult(wrapped, measured_distance, phy
 
 
   // adjust elevation for starting token in certain cases
-  if(game.settings.get("terrain-ruler", "use-elevation") && physical_path.origin?.z === undefined) {
-    log(`Using token elevation ${this.ruler.getFlag("terrain-ruler", "starting_token").elevation} for origin.`);
-    physical_path.origin.z = this.ruler.getFlag("terrain-ruler", "starting_token").elevation * canvas.scene.data.grid / canvas.scene.data.gridDistance;
-  }
-
-  if(game.settings.get("terrain-ruler", "use-elevation") && physical_path.destination?.z === undefined) {
-    log(`Using token elevation ${this.ruler.getFlag("terrain-ruler", "starting_token").elevation} for destination.`);
-    physical_path.destination.z = this.ruler.getFlag("terrain-ruler", "starting_token").elevation * canvas.scene.data.grid / canvas.scene.data.gridDistance;
-  }
-
-  if(!game.settings.get("terrain-ruler", "use-elevation")) {
+  if(game.settings.get("terrain-ruler", "use-elevation")) {
+    let starting_token_elevation = this.ruler.getFlag("terrain-ruler", "starting_token").elevation;
+    log(`starting token elevation is ${starting_token_elevation}`);
+    starting_token_elevation = starting_token_elevation === undefined ? undefined : starting_token_elevation * canvas.scene.data.grid / canvas.scene.data.gridDistance;
+    physical_path.origin.z = physical_path.origin?.z === undefined ? starting_token_elevation : physical_path.origin.z;
+    physical_path.destination.z = physical_path.destination?.z === undefined ? starting_token_elevation : physical_path.destination.z;
+ } else {
     physical_path.origin.z = undefined;
     physical_path.destination.z = undefined;
-  }
+ }
+
+ if(physical_path.origin.z === NaN) {
+   log(`Origin z is NaN`);
+   physical_path.origin.z = undefined;
+ }
+
+ if(physical_path.destination.z === NaN) {
+   log(`Destination z is NaN`);
+   physical_path.destination.z = undefined;
+ }
 
   log(`terrain edges`, this.ruler.getFlag("terrain-ruler", "terrain_edges"), this);
 
@@ -146,18 +152,30 @@ function measureCostGridded(physical_path) {
 																"euclidean";
 
 	for(const current of gridIter) {
-    const [row, col, elevation] = current;
+    let [row, col, elevation] = current;
     const [prior_row, prior_col, prior_elevation] = prior;
 
     log(`grid [${row}, ${col}] with elevation ${elevation}`);
 
-	  if (CONFIG.debug.terrainRuler) {
+    if(!game.settings.get("terrain-ruler", "use-elevation")) {
+      elevation = undefined;
+    } else if(elevation === undefined) {
+      elevation = physical_path.origin.z; // either undefined or the token elevation.       
+    }
+
+    const elevation_g = elevation === undefined ? undefined : Math.round(elevation / canvas.scene.data.grid * canvas.scene.data.gridDistance);
+
+
+  
+
+
+    if (CONFIG.debug.terrainRuler) {
 	    const [x, y] = canvas.grid.grid.getPixelsFromGridPosition(row, col);
 			debugStep(x, y, 0x008800);
 		}
+    
 
-    const elevation_change = elevation - prior_elevation; // might be NaN or undefined
-    const elevation_g = Math.round(elevation_change / canvas.scene.data.grid * canvas.scene.data.gridDistance);
+    
 
 		const c = incrementalCost(col, row, { elevation: elevation_g }); // terrain layer flips them for gridded vs. gridless
     log(`incremental cost at [${row}, ${col}] is ${c}`);
@@ -165,6 +183,7 @@ function measureCostGridded(physical_path) {
 		if(cost_calculation_type === "equidistant") {
 			total_cost += equidistantCost(c);
 		} else {
+                  const elevation_change = elevation - prior_elevation || 0; // might be NaN or undefined
 		  const is_diagonal = prior_row !== row && prior_col !== col ||
 		                      (elevation_change && !(prior_row === row && prior_col === col));
 
@@ -263,61 +282,66 @@ function measureCostGridless(physical_path, terrainEdges) {
   log(`Starting measureCostGridless with ${terrainEdges?.length} edges and path (${physical_path.origin.x}, ${physical_path.origin.y}, ${physical_path.origin?.z}) ⇿ (${physical_path.destination.x}, ${physical_path.destination.y}, ${physical_path.destination?.z})`, terrainEdges);
 
   const path_dist2d = window.libRuler.RulerUtilities.calculateDistance({ x: physical_path.origin.x, y: physical_path.origin.y },
-                                                                       { x: physical_path.origin.x, y: physical_path.destination.y });
+                                                                       { x: physical_path.destination.x, y: physical_path.destination.y });
   const elevation_change = physical_path.destination.z - physical_path.origin.z;
+  const elevation_ratio = elevation_change / path_dist2d || 0;
+  log(`elevation_ratio = ${elevation_change} / ${path_dist2d} = ${elevation_ratio}`);
 
   if (CONFIG.debug.terrainRuler)
 		debugEdges(terrainEdges);
 
 //   const ray = new Ray(physical_path.origin, physical_path.destination);
-	const rulerSegment = LineSegment.fromPoints(physical_path.origin, physical_path.destination);
-	const intersections = terrainEdges.map(edge => edge.intersection(rulerSegment)).flat().filter(point => point !== null);
-	intersections.push(physical_path.origin);
-	intersections.push(physical_path.destination);
-	if (rulerSegment.isVertical) {
-		intersections.sort((a, b) => Math.abs(a.y - physical_path.origin.y) - Math.abs(b.y - physical_path.origin.y));
-	}
-	else {
-		intersections.sort((a, b) => Math.abs(a.x - physical_path.origin.x) - Math.abs(b.x - physical_path.origin.x));
-	}
-	if (CONFIG.debug.terrainRuler)
-		intersections.forEach(intersection => debugStep(intersection.x, intersection.y));
+  const rulerSegment = LineSegment.fromPoints(physical_path.origin, physical_path.destination);
+  const intersections = terrainEdges.map(edge => edge.intersection(rulerSegment)).flat().filter(point => point !== null);
+  intersections.push(physical_path.origin);
+  intersections.push(physical_path.destination);
+  if (rulerSegment.isVertical) {
+    intersections.sort((a, b) => Math.abs(a.y - physical_path.origin.y) - Math.abs(b.y - physical_path.origin.y));
+  } else {
+    intersections.sort((a, b) => Math.abs(a.x - physical_path.origin.x) - Math.abs(b.x - physical_path.origin.x));
+  }
 
-	const cost = Array.from(iteratePairs(intersections)).reduce((cost, [start, end]) => {
-	  if (CONFIG.debug.terrainRuler)
-			canvas.terrainRulerDebug.lineStyle(2, cost === 1 ? 0x009900 : 0x990000).drawPolygon([start.x, start.y, end.x, end.y]);
+  if (CONFIG.debug.terrainRuler)
+    intersections.forEach(intersection => debugStep(intersection.x, intersection.y));
 
-		// add elevation
+  const cost = Array.from(iteratePairs(intersections)).reduce((cost, [start, end]) => {
+    if (CONFIG.debug.terrainRuler)
+      canvas.terrainRulerDebug.lineStyle(2, cost === 1 ? 0x009900 : 0x990000).drawPolygon([start.x, start.y, end.x, end.y]);
+
+    // add elevation
     // start and end must be on the physical path ray, by definition
     // change elevation proportionally based on how far along the (2d) physical path we are.
     // (for lack of a better option)
     const startLength2d = window.libRuler.RulerUtilities.calculateDistance({ x: physical_path.origin.x, y: physical_path.origin.y }, start);
     const endLength2d = window.libRuler.RulerUtilities.calculateDistance({ x: physical_path.origin.x, y: physical_path.origin.y }, end);
 
-    start.z = startLength2d / path_dist2d * elevation_change;
-    end.z = startLength2d / path_dist2d * elevation_change;
+    start.z = elevation_ratio ? startLength2d * elevation_ratio : physical_path.origin.z;
+    end.z = elevation_ratio ? endLength2d * elevation_ratio : physical_path.destination.z;
+    log(`start.z = ${startLength2d} * ${elevation_ratio} = ${start.z}`);
+    log(`end.z = ${endLength2d} * ${elevation_ratio} = ${end.z}`);
 
-		let segmentLength = window.libRuler.RulerUtilities.calculateDistance(start, end);
+    let segmentLength = window.libRuler.RulerUtilities.calculateDistance(start, end);
    // adjust segmentLength for the grid scale and size (even gridless maps have Grid Size (pixels) and Grid Scale distance)
    segmentLength = segmentLength / canvas.scene.data.grid * canvas.scene.data.gridDistance;
 
-		// right now, terrain layer appears to be ignoring tokens on gridless.
-		// so the cost from above will not account for any tokens at that point.
-		// see line 218 https://github.com/ironmonk88/enhanced-terrain-layer/blob/874efba5d8e31569e3b64fa76376de67b0121693/classes/terrainlayer.js
+    // right now, terrain layer appears to be ignoring tokens on gridless.
+    // so the cost from above will not account for any tokens at that point.
+    // see line 218 https://github.com/ironmonk88/enhanced-terrain-layer/blob/874efba5d8e31569e3b64fa76376de67b0121693/classes/terrainlayer.js
+    // https://github.com/ironmonk88/enhanced-terrain-layer/issues/48
     const incremental_cost = game.settings.get("terrain-ruler", "use-elevation") ?
                                calculateGridless3dTerrainCost(start, end, segmentLength) :
                                calculateGridlessTerrainCost(start, end, segmentLength);
 
     return cost + incremental_cost
-	}, 0);
+  }, 0);
 
-	return cost;
+  return cost;
 }
 
 function calculateGridlessTerrainCost(start, end, segmentLength) {
   const cost_x = (start.x + end.x) / 2;
-	const cost_y = (start.y + end.y) / 2;
-	const mult = incrementalCost(cost_x, cost_y);
+  const cost_y = (start.y + end.y) / 2;
+  const mult = incrementalCost(cost_x, cost_y);
   log(`Gridless Terrain Cost for (${start.x}, ${start.y}) ⇿ (${end.x}, ${end.y}): ${segmentLength} * ${mult}`);
 
 	return segmentLength * mult;
@@ -343,6 +367,7 @@ function calculateGridless3dTerrainCost(start, end, segmentLength) {
 		const min = terrain.data.min;
 		const max = terrain.data.max;
 		const mult = Math.max(terrain.data.multiple - 1, 0); // remember, looking for the incremental cost
+                log(`Terrain ${terrain.id}: ${min}–${max}, mult ${mult}`);
 		return cost + proportionalCost3d(max, min, mult, segmentLength, max_elevation, min_elevation);
 	}, 0);
 
@@ -350,14 +375,15 @@ function calculateGridless3dTerrainCost(start, end, segmentLength) {
 		const min = template.getFlag("enhanced-terrain-layer", "min"); // may be undefined
 		const max = template.getFlag("enhanced-terrain-layer", "max"); // may be undefined
 		const mult = Math.max(0, template.getFlag("enhanced-terrain-layer", "multiple") - 1 || 0); // remember, looking for the incremental cost
-
+                log(`Template ${template.id}: ${min}–${max}, mult ${mult}`);
 		return cost + proportionalCost3d(max, min, mult, segmentLength, max_elevation, min_elevation);
 	}, 0);
 
 	const cost3d_tokens = tokens_at_point.reduce((cost, token) => {
 		const min = token?.data?.elevation || 0;
 		const max = min + getTokenHeight(token);
-		const mult = game.settings.get("terrain-ruler", "use-tokens") ? 1 : 0; // remember, looking for the incremental cost
+		const mult = game.settings.get("terrain-ruler", "count-tokens") ? 1 : 0; // remember, looking for the incremental cost
+                log(`Token ${token.id}: ${min}–${max}, mult ${mult}`);
 		return cost + proportionalCost3d(max, min, mult, segmentLength, max_elevation, min_elevation);
 	}, 0);
 
@@ -389,25 +415,35 @@ function getTokenHeight(token) {
 }
 
 function proportionalCost3d(max, min, mult, segmentLength, max_elevation, min_elevation) {
-        log(`proportional cost between ${min} and ${max} for segment length ${segmentLength} and elevation ${min_elevation}–${max_elevation}`);
+        log(`proportional cost for segment length ${segmentLength}, mult ${mult}, elevation ${min_elevation}–${max_elevation} (Min/Max: ${min}–${max})`)
 	if(mult === 0) return 0;
 
-	if((max === undefined || max_elevation < max) &&
-	   (min === undefined || min_elevation > min)) {
+	//max = max === undefined ? Number.POSITIVE_INFINITY : max;
+	//min = min === undefined ? Number.NEGATIVE_INFINITY : min;
+
+        // need to convert max/min to same units as max_elevation / min_elevation
+        max = max * canvas.scene.data.grid / canvas.scene.data.gridDistance;
+        min = min * canvas.scene.data.grid / canvas.scene.data.gridDistance        
+
+        log(`proportional cost: converted min/max to ${min}–${max}`);
+
+	if((max === undefined || max === NaN || max_elevation < max) &&
+	   (min === undefined || min === NaN || min_elevation > min)) {
 	  // segment entirely within the terrain if terrain has elevation
-		return mult * segmentLength;
+          return mult * segmentLength;
 	}
 
-	max = max === undefined ? Number.POSITIVE_INFINITY : max;
-	min = min === undefined ? Number.NEGATIVE_INFINITY : min;
 
 	if(min_elevation > max) return 0; // segment is entirely above the terrain
 	if(max_elevation < min) return 0; // segment is entirely below the terrain
 
+        // the line is nearly parallel to the 2-d map, and we already checked that it was within the min/max
+        // so the whole line counts
 	if(window.libRuler.RulerUtilities.almostEqual(max_elevation, min_elevation)) return segmentLength * mult;
 
-	// now the hard part. Proportion the segment based on what part(s) are cut off
-	// if the segment runs over the top, find the top part of the segment and trim
+        // line is not parallel to the 2-d map, so it may exit the top or bottom of the object being tested.
+	// Proportion the segment based on what part(s) are cut off
+	// if the segment runs over the top, find the top part of the segment and trim. Same for bottom.
 	const total_elevation_shift = Math.abs(max_elevation - min_elevation);
 
 	// elevation is what proportion of the elevation change?
