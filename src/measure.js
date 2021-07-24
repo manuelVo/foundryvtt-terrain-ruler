@@ -324,31 +324,31 @@ function calculateGridless3dTerrainCost(start, end, segmentLength) {
 	const min_elevation = Math.min(start.z, end.z);
 
 	// reduce will return 0 if nothing in the array.
-	let cost3d_terrain = terrains_at_point.reduce((cost, terrain) => {
+	const cost3d_terrains = terrains_at_point.reduce((cost, terrain) => {
 		const min = terrain.data.min;
 		const max = terrain.data.max;
 		const mult = Math.max(terrain.data.multiple - 1, 0); // remember, looking for the incremental cost
 		return cost + proportionalCost3d(max, min, mult, segmentLength, max_elevation, min_elevation);
 	}, 0);
 
-	cost3d_templates += templates_at_point.reduce((cost, template) => {
+	const cost3d_templates = templates_at_point.reduce((cost, template) => {
 		const min = template.getFlag("enhanced-terrain-layer", "min"); // may be undefined
 		const max = template.getFlag("enhanced-terrain-layer", "max"); // may be undefined
 		const mult = Math.max(0, template.getFlag("enhanced-terrain-layer", "multiple") - 1 || 0); // remember, looking for the incremental cost
 
 		return cost + proportionalCost3d(max, min, mult, segmentLength, max_elevation, min_elevation);
-	});
+	}, 0);
 
-	cost3d_tokens += tokens_at_point.reduce((cost, token) => {
+	const cost3d_tokens = tokens_at_point.reduce((cost, token) => {
 		const min = token?.data?.elevation || 0;
 		const max = min + getTokenHeight(token);
 		const mult = game.settings.get("terrain-ruler", "use-tokens") ? 1 : 0; // remember, looking for the incremental cost
 		return cost + proportionalCost3d(max, min, mult, segmentLength, max_elevation, min_elevation);
-	});
+	}, 0);
 
-  log(`Gridless 3d Terrain Cost for (${start.x}, ${start.y}, ${start.z}) ⇿ (${end.x}, ${end.y}, ${end.z}): ${cost3d_terrain}[terrain] + ${cost3d_templates}[template] + ${cost3d_token}[token]`);
+  log(`Gridless 3d Terrain Cost for (${start.x}, ${start.y}, ${start.z}) ⇿ (${end.x}, ${end.y}, ${end.z}): ${cost3d_terrains}[terrain] + ${cost3d_templates}[template] + ${cost3d_tokens}[token]`);
 
-	return cost3d_terrain + cost3d_templates + cost3d_tokens;
+	return cost3d_terrains + cost3d_templates + cost3d_tokens;
 
 
 }
@@ -374,6 +374,7 @@ function getTokenHeight(token) {
 }
 
 function proportionalCost3d(max, min, mult, segmentLength, max_elevation, min_elevation) {
+        log(`proportional cost between ${min} and ${max} for segment length ${segmentLength} and elevation ${min_elevation}–${max_elevation}`);
 	if(mult === 0) return 0;
 
 	if((max === undefined || max_elevation < max) &&
@@ -388,7 +389,7 @@ function proportionalCost3d(max, min, mult, segmentLength, max_elevation, min_el
 	if(min_elevation > max) return 0; // segment is entirely above the terrain
 	if(max_elevation < min) return 0; // segment is entirely below the terrain
 
-	if(window.libRuler.RulerUtilities.almostEqual(top_e, bottom_e)) return segmentLength * cost;
+	if(window.libRuler.RulerUtilities.almostEqual(max_elevation, min_elevation)) return segmentLength * mult;
 
 	// now the hard part. Proportion the segment based on what part(s) are cut off
 	// if the segment runs over the top, find the top part of the segment and trim
@@ -396,9 +397,9 @@ function proportionalCost3d(max, min, mult, segmentLength, max_elevation, min_el
 
 	// elevation is what proportion of the elevation change?
 	const top_trim_elevation = Math.max(max_elevation - max, 0);
-	const top_trim_proportion = trim_elevation / total_elevation_shift
+	const top_trim_proportion = top_trim_elevation / total_elevation_shift
 	const bottom_trim_elevation = Math.max(min - min_elevation, 0);
-	const bottom_trim_proportion = trim_elevation / total_elevation_shift;
+	const bottom_trim_proportion = bottom_trim_elevation / total_elevation_shift;
 
 	const remainder_dist = segmentLength -
 												 segmentLength * top_trim_proportion -
