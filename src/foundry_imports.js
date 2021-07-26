@@ -1,4 +1,7 @@
+// deprecated; can be removed.
+
 // This is a modified version of Ruler._highlightMeasurement from 0.7.9
+
 export function calculateVisitedSpaces(ray) {
 	ray.terrainRulerVisitedSpaces = []
 	const spacer = canvas.scene.data.gridType === CONST.GRID_TYPES.SQUARE ? 1.41 : 1;
