@@ -31,7 +31,7 @@ Hooks.once('libRulerReady', async function() {
 });
 
 
-// Inject Terrain Ruler into
+// Inject Terrain Ruler into controls
 Hooks.on("getSceneControlButtons", controls => {
 	if (!terrainRulerTool) {
 		terrainRulerTool = {

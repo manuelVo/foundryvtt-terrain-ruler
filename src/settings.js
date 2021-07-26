@@ -1,6 +1,5 @@
 // ----- SETTINGS -----
 export function registerSettings() {
-  // register switch to measure 5-10-5 costs differently
 	game.settings.register("terrain-ruler", "15-15-15", {
 			name: 'Average 5-10-5 cost',
 			hint: 'If using the dnd5e 5-10-5 system setting, measure terrain cost such that doubling the cost results in 15-15-15 on a diagonal move instead of 10-20-10. Ignored otherwise.',

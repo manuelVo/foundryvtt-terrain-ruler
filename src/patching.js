@@ -18,6 +18,9 @@ export function registerRuler() {
   libWrapper.register('terrain-ruler', 'Ruler.prototype._onDragStart', function(wrapped, ...args) {
     // should really be set in the Ruler flag:
     // this.setFlag("terrain-ruler", "isTerrainRuler", terrainRuler.active);
+
+    // For now, setting the old way until we can figure out if there are consequences for
+    //   switching to a Ruler flag.
 		this.isTerrainRuler = terrainRuler.active;
 		return wrapped(...args);
 

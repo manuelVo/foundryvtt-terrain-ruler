@@ -1,6 +1,33 @@
-// import {getGridPositionFromPixels} from "./foundry_fixes.js"
-//import {calculateVisitedSpaces} from "./foundry_imports.js"
 import {Arc, Circle, Line, LineSegment, toRad} from "./geometry.js"
+
+
+/* Basic structure
+Wrap two libRuler functions: RulerSegment.addProperties and RulerSegment.modifyDistanceResult.
+
+RulerSegment.addProperties
+- Store the starting token, if any.
+- Store the edges if we are on a gridless map.
+
+RulerSegment.modifyDistanceResult
+- Modify the distance measured by terrain cost.
+- Two basic techniques: gridded and gridless.
+- Determine incremental cost for the relevant map type
+- Consider terrains, templates, tokens (generically called "terrain").
+- If consider 3-D setting is enabled:
+  - consider starting token elevation
+  - if Elevation Ruler enabled, consider 3-D points provided by that ruler.
+  - 3-D cost counts terrain only when the measured point/line is within terrain min/max.
+
+Gridded cost
+- The libRuler generator allows us to iterate along each grid space for the measured segment.
+- At each grid space, request cost information from Enhanced Terrain Layer.
+- Enhanced Terrain Layer (mostly) handles elevation at each grid space step.
+
+Ungridded cost
+- Determine all intersections between the measured segment and the terrains.
+- For each pairing of intersections, get the midway-point cost.
+- Proportion cost based on 3-D elevation when necessary.
+*/
 
 const MODULE_ID = "terrain-ruler";
 //const FORCE_DEBUG = true;
@@ -8,16 +35,22 @@ function log(...args) {
   try {
    // const isDebugging = window.DEV?.getPackageDebugValue(MODULE_ID);
     //console.log(MODULE_ID, '|', `isDebugging: ${isDebugging}.`);
-    //if(CONFIG.debug.terrainRuler) {
+    if(CONFIG.debug.terrainRuler) {
     //if (FORCE_DEBUG || isDebugging) {
       console.log(MODULE_ID, '|', ...args);
     //}
   } catch (e) {}
 }
 
-
 /*
- * Set the token elevation if there is one at the start of the ruler measure.
+ * Wrap libRuler's RulerSegment.addProperties method.
+ * This is called when the measurement first starts, and again for each RulerSegment.
+ * Set properties to the RulerSegment or the RulerSegment.ruler that will be needed later.
+ * - Set the token elevation if there is one at the start of the ruler measure.
+ *   Used by terrainRulerModifyDistanceResult to set the starting elevation when not
+ *   already set.
+ * - Store the terrain edges for use when measuring RulerSegments. Avoids re-calculating
+ *   for every segment.
  */
 export function terrainRulerAddProperties(wrapped, ...args) {
   if(!this.ruler.isTerrainRuler) return wrapped(...args);
@@ -35,6 +68,11 @@ export function terrainRulerAddProperties(wrapped, ...args) {
     // measure at that point. I *think* that re-starting a measure should reflect recent
     // changes to the map... testing will tell
 
+    // Each RulerSegment has a link to the Ruler.
+    // You can add a flag to Ruler or to RulerSegment.
+    // If the property will not change over the segments, better to add to Ruler.
+    // These are lighter-weight flags than the Foundry default.
+
     if(canvas.grid.type === CONST.GRID_TYPES.GRIDLESS) {
       this.ruler.setFlag("terrain-ruler", "terrain_edges", collectTerrainEdges(t?.id));
       log(`addProperties`, collectTerrainEdges(t?.id));
@@ -48,12 +86,29 @@ export function terrainRulerAddProperties(wrapped, ...args) {
 
 
  /*
-  * Modify libRuler's distance measurement to account for terrain.
-  * This will be called when measuring a specific RulerSegment (this).
-  * The physical path is two or more points representing the path for the segment.
-  * In the default case, the physical path would have two points equal to this.ray.A and this.ray.B for the segment.
+  * Wrap libRuler's RulerSegment.modifyDistanceResult method to account for terrain.
+  * This will be called when measuring a specific RulerSegment.
+  *
+  * Goal:
+  * Determine the incremental cost of the terrain, add it to the measured distance.
+  * Gridded: iterate over the grid using the relevant measure method, determining the
+  *          cost multiplier at each square.
+  * Ungridded: get all the intersections of terrains/templates/tokens for the measured
+  *            line segment. Determine the cost multiplier at each sub-segment between
+  *            intersections.
+  * use-elevation option: If the physical path has a "z" dimension, use it.
+  *                       Otherwise, if the token has an elevation, use it.
+  *                       In either case, consider min and max elevation of
+  *                       terrain/templates/tokens when calculating the cost.
+  *
   * @param {Number} measured_distance The distance measured for the physical path.
-  * @param {[{x,y,z}]} physical_path  Array of points in {x,y,z} format representing 2+ dimensions. z is optional.
+  *                                   The physical path is two or more points representing
+  *                                   the path for the segment. In the default case, the
+  *                                   physical path would have two points equal to
+  *                                   this.ray.A and this.ray.B for the segment.
+  * @param {Object} physical_path  An object that contains {origin, destination}.
+  *                                Each has {x, y}. May have other properties.
+  *                                In particular, Elevation Ruler adds a "z" dimension.
   * @return {Number} The distance as modified.
   */
 export function terrainRulerModifyDistanceResult(wrapped, measured_distance, physical_path) {
@@ -65,10 +120,6 @@ export function terrainRulerModifyDistanceResult(wrapped, measured_distance, phy
   measured_distance = wrapped(measured_distance, physical_path);
   log(`modifyDistance after wrapping. Distance: ${measured_distance}.`);
 
-  // if(!this.measure_distance_options.costFunction) {
-//     this.measure_distance_options.costFunction = terrainRuler.getCost;
-//   }
-
   if (CONFIG.debug.terrainRuler) {
 		if (!canvas.terrainRulerDebug?._geometry) {
 			canvas.terrainRulerDebug = canvas.controls.addChild(new PIXI.Graphics())
@@ -76,40 +127,28 @@ export function terrainRulerModifyDistanceResult(wrapped, measured_distance, phy
 		canvas.terrainRulerDebug.clear()
 	}
 
-  // Goal:
-  // Determine the incremental cost of the terrain, add it to the measured distance.
-  // Gridded: iterate over the grid using the relevant measure method, determining the
-  //          cost multiplier at each square.
-  // Ungridded: get all the intersections of terrains/templates/tokens for the measured
-  //            line segment. Determine the cost multiplier at each sub-segment between
-  //            intersections.
-  // use-elevation option: If the physical path has a "z" dimension, use it.
-  //                       Otherwise, if the token has an elevation, use it.
-  //                       In either case, consider min and max elevation of
-  //                       terrain/templates/tokens when calculating the cost.
-
-
-  // adjust elevation for starting token in certain cases
+  // adjust elevation to account for starting token in certain cases
   if(game.settings.get("terrain-ruler", "use-elevation")) {
     let starting_token_elevation = this.ruler.getFlag("terrain-ruler", "starting_token").elevation;
     log(`starting token elevation is ${starting_token_elevation}`);
     starting_token_elevation = starting_token_elevation === undefined ? undefined : starting_token_elevation * canvas.scene.data.grid / canvas.scene.data.gridDistance;
     physical_path.origin.z = physical_path.origin?.z === undefined ? starting_token_elevation : physical_path.origin.z;
     physical_path.destination.z = physical_path.destination?.z === undefined ? starting_token_elevation : physical_path.destination.z;
- } else {
+  } else {
     physical_path.origin.z = undefined;
     physical_path.destination.z = undefined;
- }
+  }
 
- if(physical_path.origin.z === NaN) {
-   log(`Origin z is NaN`);
-   physical_path.origin.z = undefined;
- }
+  // NaN in the "z" property were causing issues, so check and remove at the start.
+  if(physical_path.origin.z === NaN) {
+    log(`Origin z is NaN`);
+    physical_path.origin.z = undefined;
+  }
 
- if(physical_path.destination.z === NaN) {
-   log(`Destination z is NaN`);
-   physical_path.destination.z = undefined;
- }
+  if(physical_path.destination.z === NaN) {
+    log(`Destination z is NaN`);
+    physical_path.destination.z = undefined;
+  }
 
   log(`terrain edges`, this.ruler.getFlag("terrain-ruler", "terrain_edges"), this);
 
@@ -122,9 +161,15 @@ export function terrainRulerModifyDistanceResult(wrapped, measured_distance, phy
  /*
   * Measure the terrain cost for a given path, potentially accounting for elevation.
   * This function is only for gridded maps.
-  * Basically, it iterates over the grid using the libRuler generator. At each step,
-  * the cost is obtained for the square. Different movement rules result in slightly
-  * different calculations, but can be broken down into:
+  * Basically, it iterates over the grid using the libRuler generator. The generator
+  * returns a grid position for each step representing a visited grid point for the ruler.
+  *
+  * libRuler uses the same generator to shade the grid squares when measuring.
+  * Elevation Ruler wraps the generator to include elevation at the grid point.
+  *
+  * Goal here is to estimate the incremental cost for each grid step.
+  * Different movement rules result in slightly different calculations,
+  * but can be broken down into:
   * 1. equidistant: A move in any direction costs the same, so diagonals can be ignored.
   * 2. 5105: A move along a diagonal costs a fixed amount, but alternates between more
   *          and less expensive with additional diagonal moves.
@@ -143,6 +188,8 @@ function measureCostGridded(physical_path) {
 
 	let total_cost = 0;
 	let num_diagonals = 0;
+
+	// for consistency with what we expect gridIter to return, set prior to [row, col, elevation]
 	let prior = canvas.grid.grid.getGridPositionFromPixels(physical_path.origin.x, physical_path.origin.y).concat(physical_path.z);
 
 	const cost_calculation_type = game.system.id === "pf2e" ? "equidistant" :
@@ -152,7 +199,7 @@ function measureCostGridded(physical_path) {
 																"euclidean";
 
 	for(const current of gridIter) {
-    let [row, col, elevation] = current;
+    let [row, col, elevation] = current; // elevation may be undefined.
     const [prior_row, prior_col, prior_elevation] = prior;
 
     log(`grid [${row}, ${col}] with elevation ${elevation}`);
@@ -160,57 +207,61 @@ function measureCostGridded(physical_path) {
     if(!game.settings.get("terrain-ruler", "use-elevation")) {
       elevation = undefined;
     } else if(elevation === undefined) {
-      elevation = physical_path.origin.z; // either undefined or the token elevation.       
+      elevation = physical_path.origin.z; // either undefined or the token elevation.
     }
 
+    // try not to inadvertently introduce NaN where we expect undefined
     const elevation_g = elevation === undefined ? undefined : Math.round(elevation / canvas.scene.data.grid * canvas.scene.data.gridDistance);
-
-
-  
-
 
     if (CONFIG.debug.terrainRuler) {
 	    const [x, y] = canvas.grid.grid.getPixelsFromGridPosition(row, col);
 			debugStep(x, y, 0x008800);
 		}
-    
 
-    
-
+    // Looking to get the incremental cost for a given grid point.
+    // If elevation_g is undefined, Enhanced Terrain Layer will ignore elevation.
+    // Otherwise, Enhanced Terrain Layer will consider whether the terrain min/max is
+    //   within the elevation provided.
 		const c = incrementalCost(col, row, { elevation: elevation_g }); // terrain layer flips them for gridded vs. gridless
     log(`incremental cost at [${row}, ${col}] is ${c}`);
 
 		if(cost_calculation_type === "equidistant") {
-			total_cost += equidistantCost(c);
+			total_cost += equidistantCostForGridSpace(c);
 		} else {
-                  const elevation_change = elevation - prior_elevation || 0; // might be NaN or undefined
+		  // Elevation changes are usually diagonal, but it is possible for a token/ruler
+		  // to move straight up/down.
+      const elevation_change = elevation - prior_elevation || 0; // might be NaN or undefined
 		  const is_diagonal = prior_row !== row && prior_col !== col ||
 		                      (elevation_change && !(prior_row === row && prior_col === col));
 
-
       if(!is_diagonal) {
-			  total_cost += equidistantCost(c);
+			  total_cost += equidistantCostForGridSpace(c);
 			} else {
 			  num_diagonals += 1;
 			  // diagonal either is a fixed distance by 5105 rule or is euclidean
 				if(cost_calculation_type === "5105") {
-					total_cost += grid5105Cost(c, num_diagonals);
+					total_cost += grid5105CostForGridSpace(c, num_diagonals);
 				} else if(cost_calculation_type === "euclidean") {
-					total_cost += gridEuclideanCost(c, current, prior)
+					total_cost += gridEuclideanCostForGridSpace(c, current, prior)
 				} else {
 				  console.error("terrain-ruler|cost calculation type not recognized.");
 				}
 			}
 		}
-
 		prior = current;
 	}
 
 	return total_cost;
 }
 
-
-function equidistantCost(c) {
+ /*
+  * Calculate the cost for a grid square assuming that all movements, including diagonal,
+  *   count the same.
+  * This is simply the size of the grid space (square or hex) times the cost.
+  * @param {Number} c 	Cost to use for the space.
+  * @return {Number} Cost for the grid space.
+  */
+function equidistantCostForGridSpace(c) {
   // pf2e: each move adds 5/10/15/etc. for difficult terrain, regardless of direction.
   // dnd5e 5-5-5: same for purposes of cost; each move adds 5/10/15/etc., regardless of direction
 
@@ -219,7 +270,15 @@ function equidistantCost(c) {
   return c * grid_distance;
 }
 
-function grid5105Cost(c, num_diagonals) {
+ /*
+  * Calculate the cost for a grid square assuming 5-10-5 rules for diagonals
+  * The base cost is always the grid size * the cost (equidistantCost).
+  * But certain diagonals count double.
+  * @param {Number} c 							Cost to use for the space.
+  * @param {Number} num_diagonals		Diagonals moved thus far.
+  * @return {Number} Cost for the grid space.
+  */
+function grid5105CostForGridSpace(c, num_diagonals) {
   // diagonal is a fixed distance
   let mult = 0;
 	if(num_diagonals % 2 === 0) {
@@ -228,12 +287,21 @@ function grid5105Cost(c, num_diagonals) {
 	} else {
 	  mult = game.settings.get("terrain-ruler", "15-15-15") ? 2 : 1;
 	}
-  log(`5-10-5 cost ${equidistantCost(c)} * ${mult}`);
+  log(`5-10-5 cost ${equidistantCostForGridSpace(c)} * ${mult}`);
 
-	return equidistantCost(c) * mult;
+	return equidistantCostForGridSpace(c) * mult;
 }
 
-function gridEuclideanCost(c, current, prior) {
+ /*
+  * Calculate the cost for a grid square assuming Euclidean measurement.
+  * Basically, this is the actual distance traveled through the space times cost.
+  *
+  * @param {Number} c 														Cost to use for the space.
+  * @param {Array[row, col, elevation]} current		Current space from gridIteration. Row and column of the gridspace, plus elevation or undefined.
+  * @param {Array[row, col, elevation]} prior		  Prior space from gridIteration. Row and column of the gridspace, plus elevation or undefined.
+  * @return {Number} Cost for the grid space.
+  */
+function gridEuclideanCostForGridSpace(c, current, prior) {
   const [row, col, current_elevation] = current;
   const [prior_row, prior_col, prior_elevation] = prior;
 
@@ -258,7 +326,7 @@ function gridEuclideanCost(c, current, prior) {
   step_distance = Math.round(step_distance / canvas.scene.data.grid * canvas.scene.data.gridDistance); // convert pixel distance to grid units
 
 
-   log(`euclidean cost ${c} * ${step_distance}`);
+  log(`euclidean cost ${c} * ${step_distance}`);
 	return c * step_distance;
 }
 
@@ -270,16 +338,38 @@ function gridEuclideanCost(c, current, prior) {
   * Terrain is actually 3-D (has min and max elevation, so basically a cubic shape).
   *   So if the segment is within the 2d terrain polygon, determine if the line will
   *   go above or below the terrain at some point.
+  * Templates treated just like terrain, and can be given min/max when using
+  *   Enhanced Terrain Layer.
   * If considering tokens as difficult terrain, must locate intersections for any tokens.
   *   Consider a 3-D bounding box to have a bottom equal to the token elevation, and extend
   *   upwards as high as the token is wide or high.
   * @param { origin: {x: Number, y: Number},
   *          destination: {x: Number, y: Number}} physical_path Path to be measured
-  * @param {Number|undefined| token_elevation 	Elevation of any starting token.
+  * @param {Array} terrainEdges 									Edges–terrain, template, token–to consider
   * @return {Number} terrain cost for the move, not counting the base move cost.
   */
 function measureCostGridless(physical_path, terrainEdges) {
   log(`Starting measureCostGridless with ${terrainEdges?.length} edges and path (${physical_path.origin.x}, ${physical_path.origin.y}, ${physical_path.origin?.z}) ⇿ (${physical_path.destination.x}, ${physical_path.destination.y}, ${physical_path.destination?.z})`, terrainEdges);
+
+  // The elevation ratio tells us how to apportion the physical path distance for a template.
+  // Imagine the following, where a physical path crosses a terrain looking overhead on
+  //   2-D canvas:
+  //            ----------
+  //           |          |
+  // Origin ---a----------b-----> Destination
+  //           |          |
+  //            ----------
+  // The full path distance is Origin --> Destination.
+  // startLength2d: Origin --> a
+  // endLength2d: b --> Destination
+  //
+  // Assume elevation goes from 20 at the origin to 0 at destination.
+  // The elevation ratio describes the speed at which elevation decreases over
+  //   physical path, assuming a linear decrease. (E.g., slope of the elevation.)
+  // start.z: elevation at a
+  // end.z: elevation at b
+  // Once we have points a and b in 3-D, we can calculate cost for a given intersection
+  //   pair, using calculateGridless3dTerrainCost or calculateGridlessTerrainCost.
 
   const path_dist2d = window.libRuler.RulerUtilities.calculateDistance({ x: physical_path.origin.x, y: physical_path.origin.y },
                                                                        { x: physical_path.destination.x, y: physical_path.destination.y });
@@ -287,10 +377,8 @@ function measureCostGridless(physical_path, terrainEdges) {
   const elevation_ratio = elevation_change / path_dist2d || 0;
   log(`elevation_ratio = ${elevation_change} / ${path_dist2d} = ${elevation_ratio}`);
 
-  if (CONFIG.debug.terrainRuler)
-		debugEdges(terrainEdges);
+  if (CONFIG.debug.terrainRuler) { debugEdges(terrainEdges); }
 
-//   const ray = new Ray(physical_path.origin, physical_path.destination);
   const rulerSegment = LineSegment.fromPoints(physical_path.origin, physical_path.destination);
   const intersections = terrainEdges.map(edge => edge.intersection(rulerSegment)).flat().filter(point => point !== null);
   intersections.push(physical_path.origin);
@@ -320,9 +408,10 @@ function measureCostGridless(physical_path, terrainEdges) {
     log(`start.z = ${startLength2d} * ${elevation_ratio} = ${start.z}`);
     log(`end.z = ${endLength2d} * ${elevation_ratio} = ${end.z}`);
 
+    // segmentLength may be measured in 3-D.
     let segmentLength = window.libRuler.RulerUtilities.calculateDistance(start, end);
-   // adjust segmentLength for the grid scale and size (even gridless maps have Grid Size (pixels) and Grid Scale distance)
-   segmentLength = segmentLength / canvas.scene.data.grid * canvas.scene.data.gridDistance;
+    // adjust segmentLength for the grid scale and size (even gridless maps have Grid Size (pixels) and Grid Scale distance)
+    segmentLength = segmentLength / canvas.scene.data.grid * canvas.scene.data.gridDistance;
 
     // right now, terrain layer appears to be ignoring tokens on gridless.
     // so the cost from above will not account for any tokens at that point.
@@ -338,6 +427,17 @@ function measureCostGridless(physical_path, terrainEdges) {
   return cost;
 }
 
+ /*
+  * For given 2-D start/end points and the provided segment length, determine the correct
+  *   multiplier and return the cost for that segment using that multiplier.
+  * As elsewhere, this is the incremental cost for the terrain.
+  * It is assumed that the terrain is the same between start and end, so that we can
+  *   simply test the mid-point to get the cost.
+  * @param {{x: Number, y: Number}} start		Starting intersection point for the terrain
+  * @param {{x: Number, y: Number}} end		  Ending intersection point for the terrain
+  * @param {Number} segmentLength						Length of the segment for which cost should be applied.
+  * @return {Number} Cost for the provided segment
+  */
 function calculateGridlessTerrainCost(start, end, segmentLength) {
   const cost_x = (start.x + end.x) / 2;
   const cost_y = (start.y + end.y) / 2;
@@ -347,6 +447,20 @@ function calculateGridlessTerrainCost(start, end, segmentLength) {
 	return segmentLength * mult;
 }
 
+ /*
+  * For a given 3-D start/end points and the provided segment length, determine the correct
+  *   multiplier and return the cost for that segment using that multiplier.
+  * As elsewhere, this is the incremental cost for the terrain.
+  * It is assumed that the terrain is the same between start and end, so that we can
+  *   simply test the mid-point to get the cost.
+  * The min/max of each terrain type (terrain, template, token) is determined, so that
+  *   the proportional part of the segment that is within the terrain can be counted.
+  *   (The segment might move above or below the terrain.)
+  * @param {{x: Number, y: Number, z: Number}} start		Starting intersection point for the terrain
+  * @param {{x: Number, y: Number, z: Number}} end		  Ending intersection point for the terrain
+  * @param {Number} segmentLength												Length of the segment for which cost should be applied.
+  * @return {Number} Cost for the provided segment
+  */
 function calculateGridless3dTerrainCost(start, end, segmentLength) {
   // tricky part: if considering elevation, need to get the terrains/templates/tokens
 	// the segment could exit the terrain at the top or the bottom, in which case only
@@ -390,10 +504,13 @@ function calculateGridless3dTerrainCost(start, end, segmentLength) {
   log(`Gridless 3d Terrain Cost for (${start.x}, ${start.y}, ${start.z}) ⇿ (${end.x}, ${end.y}, ${end.z}): ${cost3d_terrains}[terrain] + ${cost3d_templates}[template] + ${cost3d_tokens}[token]`);
 
 	return cost3d_terrains + cost3d_templates + cost3d_tokens;
-
-
 }
 
+ /*
+  * Obtain a reasonable estimate of token height given limited information.
+  * @param {Token Object}	token		Token at issue.
+  * @return {Number} Estimated height of the token.
+  */
 function getTokenHeight(token) {
   // TO-DO: module to allow input of actual token height in a consistent manner
 
@@ -409,23 +526,30 @@ function getTokenHeight(token) {
 		case "tiny": height = 1.5; break;  // PHB p. 191: 2.5 x 2.5 square; Pf2e: 1–2'
 	}
 
-  height = height ||  Math.round(Math.max(token.hitArea.height, token.hitArea.width) / canvas.scene.data.grid * canvas.scene.data.gridDistance);
+  height = height || Math.round(Math.max(token.hitArea.height, token.hitArea.width) / canvas.scene.data.grid * canvas.scene.data.gridDistance);
 
   return height;
 }
 
+ /*
+  * Helper function to trim a segment into the part within a given elevation
+  * @param {Number} max						Maximum terrain height, in grid units.
+  * @param {Number} min						Minimum terrain height, in grid units.
+  * @param {Number} mult					Cost multiplier.
+  * @param {Number} segmentLength	Total length of the segment
+  * @param {Number} max_elevation	Maximum "z" point for the segment where it intersects the terrain, in pixel units
+  * @param {Number} min_elevation	Minimum "z" point for the segment where it intersects the terrain, in pixel units
+  * @return {Number} Proportional cost of the 3d segment.
+  */
 function proportionalCost3d(max, min, mult, segmentLength, max_elevation, min_elevation) {
-        log(`proportional cost for segment length ${segmentLength}, mult ${mult}, elevation ${min_elevation}–${max_elevation} (Min/Max: ${min}–${max})`)
+  log(`proportional cost for segment length ${segmentLength}, mult ${mult}, elevation ${min_elevation}–${max_elevation} (Min/Max: ${min}–${max})`)
 	if(mult === 0) return 0;
 
-	//max = max === undefined ? Number.POSITIVE_INFINITY : max;
-	//min = min === undefined ? Number.NEGATIVE_INFINITY : min;
+  // need to convert max/min to same units as max_elevation / min_elevation
+  max = max * canvas.scene.data.grid / canvas.scene.data.gridDistance;
+  min = min * canvas.scene.data.grid / canvas.scene.data.gridDistance
 
-        // need to convert max/min to same units as max_elevation / min_elevation
-        max = max * canvas.scene.data.grid / canvas.scene.data.gridDistance;
-        min = min * canvas.scene.data.grid / canvas.scene.data.gridDistance        
-
-        log(`proportional cost: converted min/max to ${min}–${max}`);
+  log(`proportional cost: converted min/max to ${min}–${max}`);
 
 	if((max === undefined || max === NaN || max_elevation < max) &&
 	   (min === undefined || min === NaN || min_elevation > min)) {
@@ -433,15 +557,14 @@ function proportionalCost3d(max, min, mult, segmentLength, max_elevation, min_el
           return mult * segmentLength;
 	}
 
-
 	if(min_elevation > max) return 0; // segment is entirely above the terrain
 	if(max_elevation < min) return 0; // segment is entirely below the terrain
 
-        // the line is nearly parallel to the 2-d map, and we already checked that it was within the min/max
-        // so the whole line counts
+  // the line is nearly parallel to the 2-d map, and we already checked that it was within the min/max
+  // so the whole line counts
 	if(window.libRuler.RulerUtilities.almostEqual(max_elevation, min_elevation)) return segmentLength * mult;
 
-        // line is not parallel to the 2-d map, so it may exit the top or bottom of the object being tested.
+  // line is not parallel to the 2-d map, so it may exit the top or bottom of the object being tested.
 	// Proportion the segment based on what part(s) are cut off
 	// if the segment runs over the top, find the top part of the segment and trim. Same for bottom.
 	const total_elevation_shift = Math.abs(max_elevation - min_elevation);
@@ -457,9 +580,14 @@ function proportionalCost3d(max, min, mult, segmentLength, max_elevation, min_el
 												 segmentLength * bottom_trim_proportion;
 
 	return remainder_dist * mult;
-
 }
 
+ /*
+  * Get templates that contain a pixel position.
+  * @param {Number} x		Pixel position along x axis
+  * @param {Number} y		Pixel position along y axis
+  * @return {Array} Templates that contain the pixel position.
+  */
 function templateFromPixels(x, y) {
 	const hx = (x + (canvas.grid.w / 2));
 	const hy = (y + (canvas.grid.h / 2));
@@ -473,6 +601,14 @@ function templateFromPixels(x, y) {
 	return templates;
 }
 
+ /*
+  * Get tokens that contain a pixel position.
+  * Assumption is that a token hitArea is the relevant width/height for considering as
+  *   difficult terrain.
+  * @param {Number} x		Pixel position along x axis
+  * @param {Number} y		Pixel position along y axis
+  * @return {Array} Tokens that contain the pixel position.
+  */
 function tokenFromPixels(x, y) {
 	let tokens = canvas.tokens.placeables.filter(t => {
     const t_shape = new PIXI.Rectangle(t.x, t.y, t.hitArea.width, t.hitArea.height)
@@ -482,6 +618,14 @@ function tokenFromPixels(x, y) {
 	return tokens;
 }
 
+ /*
+  * Helper function to calculate the incremental cost from the cost function.
+  * Ensures incremental cost will be minimum 0.
+  * TO-DO: Should the minimum cost be -1 to represent terrain with cost 0?
+  * @param {Number} x		    Pixel position along x axis
+  * @param {Number} y		    Pixel position along y axis
+  * @param {Object} options	Options passed to cost function.
+  */
 function incrementalCost(x, y, options={}) {
   const cost = getCostEnhancedTerrainlayer(x, y, options);
   //log(`cost at ${x}, ${y} is ${cost}`, options);
@@ -490,7 +634,12 @@ function incrementalCost(x, y, options={}) {
   return Math.max(0, cost - 1);
 }
 
-
+ /*
+  * Terrain cost function.
+  * @param {Number} x		    Pixel position along x axis
+  * @param {Number} y		    Pixel position along y axis
+  * @param {Object} options	Options passed to cost function.
+  */
 export function getCostEnhancedTerrainlayer(x, y, options={}) {
 	return canvas.terrain.cost({x: x, y: y}, options);
 }
