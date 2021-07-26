@@ -33,12 +33,9 @@ const MODULE_ID = "terrain-ruler";
 //const FORCE_DEBUG = true;
 function log(...args) {
   try {
-   // const isDebugging = window.DEV?.getPackageDebugValue(MODULE_ID);
-    //console.log(MODULE_ID, '|', `isDebugging: ${isDebugging}.`);
     if(CONFIG.debug.terrainRuler) {
-    //if (FORCE_DEBUG || isDebugging) {
       console.log(MODULE_ID, '|', ...args);
-    //}
+    }
   } catch (e) {}
 }
 
