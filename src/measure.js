@@ -29,6 +29,7 @@ Ungridded cost
 - Proportion cost based on 3-D elevation when necessary.
 */
 
+// log just for testing; feel free to remove any/all log statements.
 const MODULE_ID = "terrain-ruler";
 //const FORCE_DEBUG = true;
 function log(...args) {
