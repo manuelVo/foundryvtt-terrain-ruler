@@ -28,7 +28,7 @@ export function calculateVisitedSpaces(ray) {
 		if (i === 0) continue;
 
 		// If the positions are not neighbors, also highlight their halfway point
-		if (!canvas.grid.isNeighbor(x0, y0, x1, y1)) {
+    if (!canvas.grid.isNeighbor(x0, y0, x1, y1)) {
 			let th = tMax[i - 1] + (0.5 / nMax);
 			let { x, y } = ray.project(th);
 			let [x1h, y1h] = canvas.grid.grid.getGridPositionFromPixels(x, y);

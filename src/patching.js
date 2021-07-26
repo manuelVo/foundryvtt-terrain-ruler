@@ -21,8 +21,8 @@ export function registerRuler() {
 
     // For now, setting the old way until we can figure out if there are consequences for
     //   switching to a Ruler flag.
-		this.isTerrainRuler = terrainRuler.active;
-		return wrapped(...args);
+    this.isTerrainRuler = terrainRuler.active;
+    return wrapped(...args);
 
   }, 'WRAPPER');
 

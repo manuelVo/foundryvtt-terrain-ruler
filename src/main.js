@@ -7,15 +7,15 @@ CONFIG.debug.terrainRuler = false
 let terrainRulerTool
 
 Hooks.once("init", () => {
-	window.terrainRuler = {
-		active: true,
-	};
-	Object.defineProperty(game, "terrainRuler", {
-		get: function() {
-			console.warn("Terrain Ruler | `game.terrainRuler` is deprecated and will be removed in a future version. Use `terrainRuler` or `window.terrainRuler` instead.");
-			return window.terrainRuler;
-		}
-	});
+  window.terrainRuler = {
+    active: true,
+  };
+  Object.defineProperty(game, "terrainRuler", {
+    get: function() {
+      console.warn("Terrain Ruler | `game.terrainRuler` is deprecated and will be removed in a future version. Use `terrainRuler` or `window.terrainRuler` instead.");
+      return window.terrainRuler;
+    }
+  });
 })
 
 Hooks.once('setup', async function() {
@@ -23,7 +23,7 @@ Hooks.once('setup', async function() {
 });
 
 Hooks.once("ready", () => {
-	window.terrainRuler.getCost = getCostEnhancedTerrainlayer;
+  window.terrainRuler.getCost = getCostEnhancedTerrainlayer;
 })
 
 Hooks.once('libRulerReady', async function() {
@@ -33,18 +33,18 @@ Hooks.once('libRulerReady', async function() {
 
 // Inject Terrain Ruler into controls
 Hooks.on("getSceneControlButtons", controls => {
-	if (!terrainRulerTool) {
-		terrainRulerTool = {
-			name: "terrainRuler",
-			title: "terrain-ruler.terrainRuler",
-			icon: "fas fa-hiking",
-			toggle: true,
-			active: terrainRuler?.active,
-			onClick: toggled => terrainRuler.active = toggled,
-			visible: true,
-		}
-	}
-	const tokenControls = controls.find(group => group.name === "token").tools
-	tokenControls.splice(tokenControls.findIndex(tool => tool.name === "ruler") + 1, 0, terrainRulerTool)
+  if (!terrainRulerTool) {
+    terrainRulerTool = {
+      name: "terrainRuler",
+      title: "terrain-ruler.terrainRuler",
+      icon: "fas fa-hiking",
+      toggle: true,
+      active: terrainRuler?.active,
+      onClick: toggled => terrainRuler.active = toggled,
+      visible: true,
+    }
+  }
+  const tokenControls = controls.find(group => group.name === "token").tools
+  tokenControls.splice(tokenControls.findIndex(tool => tool.name === "ruler") + 1, 0, terrainRulerTool)
 })
 
