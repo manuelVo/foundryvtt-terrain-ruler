@@ -1,3 +1,8 @@
+## 1.4.0
+### API changes
+- Measurement options are now passed to the cost function to allow for finer grained control over enhanced terrain layer's behavior (thanks to Michael Clavell!)
+
+
 ## 1.3.2
 ### Compatibility
 - Terrain Ruler is now compatible with 0.8.8
