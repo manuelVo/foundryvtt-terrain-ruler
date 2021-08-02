@@ -1,6 +1,6 @@
 import {getGridPositionFromPixels} from "./foundry_fixes.js"
 import {calculateVisitedSpaces} from "./foundry_imports.js"
-import {Arc, Circle, Line, Segment, toRad} from "./geometry.js"
+import {Arc, calcDistance, Circle, Line, Segment, toRad} from "./geometry.js"
 
 export function measureDistances(segments, options={}) {
 	if (!options.costFunction)
@@ -164,7 +164,7 @@ function measureDistancesGridless(segments, options) {
 			else if (start.y === end.y)
 				segmentLength = Math.abs(start.x - end.x);
 			else
-				segmentLength = Math.sqrt(Math.pow(start.x - end.x, 2) + Math.pow(start.y - end.y, 2));
+				segmentLength = calcDistance(start, end);
 			const cost = costFunction((start.x + end.x) / 2, (start.y + end.y) / 2, options);
 			if (CONFIG.debug.terrainRuler)
 				canvas.terrainRulerDebug.lineStyle(2, cost === 1 ? 0x009900 : 0x990000).drawPolygon([start.x, start.y, end.x, end.y]);
