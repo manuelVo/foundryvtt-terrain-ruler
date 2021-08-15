@@ -9,7 +9,7 @@ CONFIG.debug.terrainRuler = false
 let terrainRulerTool
 
 Hooks.once("init", () => {
-	hookFunctions()
+	if(!game.modules.get('libruler')?.active) { hookFunctions() }
 	window.terrainRuler = {
 		active: true,
 		measureDistances,
