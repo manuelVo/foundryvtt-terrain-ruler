@@ -12,7 +12,10 @@ import { collectTerrainEdges, debugEdges, measureDistances } from "./measure.js"
  *   for every segment.
  */
 export function terrainRulerAddProperties(wrapped, ...args) {
-  if(!this.ruler.isTerrainRuler) return wrapped(...args);
+  console.log(`${MODULE_ID}|addProperties`);
+  if(!this.ruler.isTerrainRuler) { 
+   //console.log(`${MODULE_ID}| returning without adding properties.`);
+   return wrapped(...args); }
 
   // set certain properties for the ruler when starting a measurement
   if(this.segment_num === 0) {
@@ -44,8 +47,14 @@ export function terrainRulerAddProperties(wrapped, ...args) {
  * @return {Number} The distance as modified.
  */
 export function terrainRulerModifyDistanceResult(wrapped, measured_distance, physical_path) {
+  //console.log(`${MODULE_ID}|modifyDistanceResult`);
   measured_distance = wrapped(measured_distance, physical_path);
-  if(!this.ruler.isTerrainRuler) { return measured_distance; }
+
+  console.log(`${MODULE_ID}|Measured distance: ${measured_distance} for path ${physical_path.origin.x}, ${physical_path.origin.y} to ${physical_path.destination.x}, ${physical_path.destination.y}`);
+  if(!this.ruler.getFlag(MODULE_ID, "isTerrainRuler")) {
+    console.log(`${MODULE_ID}|Returning unmodified distance`);
+    return measured_distance; 
+  }
 
   // convert the physical path to a 2-D ray
   // for compatibility with old terrain measurement code that expects an array of segment rays
@@ -57,6 +66,7 @@ export function terrainRulerModifyDistanceResult(wrapped, measured_distance, phy
 
   let segment = { ray: new Ray(physical_path.origin, physical_path.destination) };
   const terrain_distance = measureDistances([ segment ]);
+  console.log(`${MODULE_ID}|terrain distance is ${terrain_distance}`);
 
   return terrain_distance;  // should really be: return measured_distance + terrain_cost;
 }

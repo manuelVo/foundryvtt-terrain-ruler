@@ -8,9 +8,12 @@ export const MODULE_ID = "terrain-ruler";
 import { terrainRulerAddProperties, terrainRulerModifyDistanceResult } from "./libruler_methods.js";
 
 export function registerRuler() {
+  console.log(`${MODULE_ID}|patching libRuler`); 
   libWrapper.register(MODULE_ID, 'window.libRuler.RulerSegment.prototype.addProperties', terrainRulerAddProperties, 'WRAPPER');
   libWrapper.register(MODULE_ID, 'window.libRuler.RulerSegment.prototype.modifyDistanceResult', terrainRulerModifyDistanceResult, 'WRAPPER');
   libWrapper.register(MODULE_ID, 'Ruler.prototype._onDragStart', function(wrapped, ...args) {
+    console.log(`${MODULE_ID}|terrainRuler active: ${terrainRuler.active}`);
     this.setFlag(MODULE_ID, "isTerrainRuler", terrainRuler.active);
+    return wrapped(...args);
   });
 }
