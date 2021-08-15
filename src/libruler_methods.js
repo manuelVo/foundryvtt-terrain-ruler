@@ -21,7 +21,7 @@ export function terrainRulerAddProperties(wrapped, ...args) {
       this.ruler.setFlag(MODULE_ID, "terrainEdges", collectTerrainEdges());
 
       if (CONFIG.debug.terrainRuler)
-        debugEdges(this.ruler.getFlag("terrain-ruler", "terrain_edges"));
+        debugEdges(this.ruler.getFlag(MODULE_ID, "terrain_edges"));
       }
     }
   }
