@@ -1,37 +1,23 @@
 import { MODULE_ID } from "./libruler_patching.js";
-import { collectTerrainEdges, debugEdges, measureDistances } from "./measure.js";
+import { measureDistances } from "./measure.js";
 
 /*
  * Wrap libRuler's RulerSegment.addProperties method.
  * This is called when the measurement first starts, and again for each RulerSegment.
  * Set properties to the RulerSegment or the RulerSegment.ruler that will be needed later.
- * - Set the token elevation if there is one at the start of the ruler measure.
- *   Used by terrainRulerModifyDistanceResult to set the starting elevation when not
- *   already set.
- * - Store the terrain edges for use when measuring RulerSegments. Avoids re-calculating
- *   for every segment.
  */
+// TO-DO: could measure edges here to use when measuring gridless terrain later.
+//        Would avoid re-calculating edges repeatedly.
+//        But requires modifying measureDistancesGridless to access the stored info.
+// e.g.:
+/*
 export function terrainRulerAddProperties(wrapped, ...args) {
-  console.log(`${MODULE_ID}|addProperties`);
-  if(!this.ruler.isTerrainRuler) { 
-   //console.log(`${MODULE_ID}| returning without adding properties.`);
-   return wrapped(...args); }
-
-  // set certain properties for the ruler when starting a measurement
-  if(this.segment_num === 0) {
-    // store edges used for measuring on gridless maps
-    if (canvas.grid.type === CONST.GRID_TYPES.GRIDLESS || options.ignoreGrid) {
-      this.ruler.setFlag(MODULE_ID, "terrainEdges", collectTerrainEdges());
-
-      if (CONFIG.debug.terrainRuler) {
-        debugEdges(this.ruler.getFlag(MODULE_ID, "terrain_edges"));
-      }
-    }
+  if(this.ruler.isTerrainRuler && this.segment_num === 0 && (canvas.grid.type === CONST.GRID_TYPES.GRIDLESS || options.ignoreGrid)) {
+    this.ruler.setFlag(MODULE_ID, "terrainEdges", collectTerrainEdges());
   }
-
   return wrapped(...args);
 }
-
+*/
 
 /*
  * Wrap libRuler's RulerSegment.modifyDistanceResult method to account for terrain.
@@ -52,8 +38,7 @@ export function terrainRulerModifyDistanceResult(wrapped, measured_distance, phy
 
   console.log(`${MODULE_ID}|Measured distance: ${measured_distance} for path ${physical_path.origin.x}, ${physical_path.origin.y} to ${physical_path.destination.x}, ${physical_path.destination.y}`);
   if(!this.ruler.getFlag(MODULE_ID, "isTerrainRuler")) {
-    console.log(`${MODULE_ID}|Returning unmodified distance`);
-    return measured_distance; 
+    return measured_distance;
   }
 
   // convert the physical path to a 2-D ray
