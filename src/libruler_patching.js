@@ -1,4 +1,4 @@
-const MODULE_ID = "terrain-ruler";
+export const MODULE_ID = "terrain-ruler";
 
 // Patch libRuler methods
 // 1. RulerSegment.addProperties: store values such as edges for the ruler instance

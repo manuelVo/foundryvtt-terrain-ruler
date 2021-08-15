@@ -176,7 +176,7 @@ function measureDistancesGridless(segments, options) {
 }
 
 // Collects the edges of all sources of terrain in one array
-function collectTerrainEdges() {
+export function collectTerrainEdges() {
 	const terrainEdges = canvas.terrain.placeables.reduce((edges, terrain) => edges.concat(getEdgesFromPolygon(terrain)), []);
 	const templateEdges = canvas.templates.placeables.reduce((edges, template) => {
 		const shape = template.shape;
@@ -296,7 +296,7 @@ function debugStep(x, y, color=0x000000, radius=5) {
 	canvas.terrainRulerDebug.lineStyle(4, color).drawCircle(x, y, radius);
 }
 
-function debugEdges(edges) {
+export function debugEdges(edges) {
 	for (const edge of edges) {
 		const painter = canvas.terrainRulerDebug;
 		painter.lineStyle(2, 0x000099)
