@@ -5,12 +5,12 @@ const MODULE_ID = "terrain-ruler";
 // 2. RulerSegment.modifyDistanceResult: correct distance measurement for terrain traversed over the ruler segment
 // 3. Ruler._onDragStart: set a flag that we are using terrainRuler for this ruler
 
-import { terrainRulerAddProperties, terrainRulerModifyDistanceResult }
+import { terrainRulerAddProperties, terrainRulerModifyDistanceResult } from "./libruler_methods.js";
 
 export function registerRuler() {
   libWrapper.register(MODULE_ID, 'window.libRuler.RulerSegment.prototype.addProperties', terrainRulerAddProperties, 'WRAPPER');
   libWrapper.register(MODULE_ID, 'window.libRuler.RulerSegment.prototype.modifyDistanceResult', terrainRulerModifyDistanceResult, 'WRAPPER');
   libWrapper.register(MODULE_ID, 'Ruler.prototype._onDragStart', function(wrapped, ...args) {
     this.setFlag(MODULE_ID, "isTerrainRuler", terrainRuler.active);
-  }
+  });
 }

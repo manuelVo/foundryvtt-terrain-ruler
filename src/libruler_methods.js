@@ -20,7 +20,7 @@ export function terrainRulerAddProperties(wrapped, ...args) {
     if (canvas.grid.type === CONST.GRID_TYPES.GRIDLESS || options.ignoreGrid) {
       this.ruler.setFlag(MODULE_ID, "terrainEdges", collectTerrainEdges());
 
-      if (CONFIG.debug.terrainRuler)
+      if (CONFIG.debug.terrainRuler) {
         debugEdges(this.ruler.getFlag(MODULE_ID, "terrain_edges"));
       }
     }
@@ -44,7 +44,7 @@ export function terrainRulerAddProperties(wrapped, ...args) {
  * @return {Number} The distance as modified.
  */
 export function terrainRulerModifyDistanceResult(wrapped, measured_distance, physical_path) {
-  const measured_distance = wrapped(measured_distance, physical_path);
+  measured_distance = wrapped(measured_distance, physical_path);
   if(!this.ruler.isTerrainRuler) { return measured_distance; }
 
   // convert the physical path to a 2-D ray
