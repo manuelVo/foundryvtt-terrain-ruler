@@ -139,9 +139,7 @@ function measureDistancesHex(segments, options) {
 function measureDistancesGridless(segments, options) {
 	const costFunction = options.costFunction;
 
-  // avoid recalculating the edges for each segment when libRuler is active
-	const terrainEdges = game.modules.get('libruler')?.active ? this.ruler.getFlag("terrain-ruler", "terrainEdges") : collectTerrainEdges();
-	console.log(`terrain-ruler|terrainEdges`, terrainEdges);
+	const terrainEdges = collectTerrainEdges();
 	if (CONFIG.debug.terrainRuler)
 		debugEdges(terrainEdges);
 
