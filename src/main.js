@@ -1,5 +1,6 @@
 import {getPixelsFromGridPosition} from "./foundry_fixes.js"
 import {measureDistances, getCostEnhancedTerrainlayer} from "./measure.js"
+import {registerRuler} from "./libruler_patching.js";
 
 // Patch the function as early as possible to decrease the chance of anyone having hooked it already
 patchRulerMeasure()
@@ -25,6 +26,10 @@ Hooks.once("init", () => {
 Hooks.once("ready", () => {
 	window.terrainRuler.getCost = getCostEnhancedTerrainlayer;
 })
+
+Hooks.once('libRulerReady', async function() {
+  registerRuler();
+});
 
 // Inject Terrain Ruler into
 Hooks.on("getSceneControlButtons", controls => {
