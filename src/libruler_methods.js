@@ -12,7 +12,7 @@ import { measureDistances } from "./measure.js";
 // e.g.:
 /*
 export function terrainRulerAddProperties(wrapped, ...args) {
-  if(this.ruler.isTerrainRuler && this.segment_num === 0 && (canvas.grid.type === CONST.GRID_TYPES.GRIDLESS || options.ignoreGrid)) {
+  if(this.ruler.getFlag(MODULE_ID, "isTerrainRuler") && this.segment_num === 0 && (canvas.grid.type === CONST.GRID_TYPES.GRIDLESS || options.ignoreGrid)) {
     this.ruler.setFlag(MODULE_ID, "terrainEdges", collectTerrainEdges());
   }
   return wrapped(...args);
