@@ -33,10 +33,8 @@ export function terrainRulerAddProperties(wrapped, ...args) {
  * @return {Number} The distance as modified.
  */
 export function terrainRulerModifyDistanceResult(wrapped, measured_distance, physical_path) {
-  //console.log(`${MODULE_ID}|modifyDistanceResult`);
   measured_distance = wrapped(measured_distance, physical_path);
 
-  console.log(`${MODULE_ID}|Measured distance: ${measured_distance} for path ${physical_path.origin.x}, ${physical_path.origin.y} to ${physical_path.destination.x}, ${physical_path.destination.y}`);
   if(!this.ruler.getFlag(MODULE_ID, "isTerrainRuler")) {
     return measured_distance;
   }
@@ -48,10 +46,8 @@ export function terrainRulerModifyDistanceResult(wrapped, measured_distance, phy
   //   measured_distance parameter, for better compatibility with other modules.
   //   Right now, it is just overriding measured_distance with its own measure, which
   //   may not be correct depending on what other modules are enabled (such as Elevation Ruler)
-
   let segment = { ray: new Ray(physical_path.origin, physical_path.destination) };
   const terrain_distance = measureDistances([ segment ]);
-  console.log(`${MODULE_ID}|terrain distance is ${terrain_distance}`);
 
   return terrain_distance;  // should really be: return measured_distance + terrain_cost;
 }

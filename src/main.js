@@ -10,9 +10,7 @@ CONFIG.debug.terrainRuler = false
 let terrainRulerTool
 
 Hooks.once("init", () => {
-	if(!game.modules.get('libruler')?.active) { 
-          console.log(`terrain-ruler|libRuler inactive; hooking`);
-          hookFunctions() }
+	if(!game.modules.get('libruler')?.active) { hookFunctions() }
 	window.terrainRuler = {
 		active: true,
 		measureDistances,
@@ -23,7 +21,6 @@ Hooks.once("init", () => {
 			return window.terrainRuler;
 		}
 	});
-  console.log(`terrain-ruler|finished init. libRuler active? ${game.modules.get('libruler')?.active}`);
 })
 
 Hooks.once("ready", () => {
