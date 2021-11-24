@@ -1,3 +1,8 @@
+## 1.5.0
+### API changes
+- There is now an API endpoint for pinpointing the pixel coordinates of given distances along a measured path
+
+
 ## 1.4.0
 ### API changes
 - Measurement options are now passed to the cost function to allow for finer grained control over enhanced terrain layer's behavior (thanks to Michael Clavell!)
