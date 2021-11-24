@@ -138,11 +138,13 @@ function measureDistancesHex(segments, options) {
 
 function measureDistancesGridless(segments, options) {
 	const costFunction = options.costFunction;
+	const pinpointDistances = options.pinpointDistances ?? new Map();
 
 	const terrainEdges = collectTerrainEdges();
 	if (CONFIG.debug.terrainRuler)
 		debugEdges(terrainEdges);
 
+	let lastSegmentDistance = 0;
 	return segments.map(segment => {
 		const ray = segment.ray;
 		const rulerSegment = Segment.fromPoints(ray.A, ray.B);
@@ -158,20 +160,34 @@ function measureDistancesGridless(segments, options) {
 		if (CONFIG.debug.terrainRuler)
 			intersections.forEach(intersection => debugStep(intersection.x, intersection.y));
 		const distance = Array.from(iteratePairs(intersections)).reduce((distance, [start, end]) => {
+			const deltaX = end.x - start.x;
+			const deltaY = end.y - start.y;
 			let segmentLength;
 			if (start.x === end.x)
-				segmentLength = Math.abs(start.y - end.y);
+				segmentLength = Math.abs(deltaY);
 			else if (start.y === end.y)
-				segmentLength = Math.abs(start.x - end.x);
+				segmentLength = Math.abs(deltaX);
 			else
 				segmentLength = calcDistance(start, end);
 			const cost = costFunction((start.x + end.x) / 2, (start.y + end.y) / 2, options);
 			if (CONFIG.debug.terrainRuler)
 				canvas.terrainRulerDebug.lineStyle(2, cost === 1 ? 0x009900 : 0x990000).drawPolygon([start.x, start.y, end.x, end.y]);
-			return distance + segmentLength * cost;
+			const segmentDistance = segmentLength * cost / canvas.dimensions.size * canvas.dimensions.distance;
+
+			for (const pinpointDistance of pinpointDistances.keys()) {
+				if (pinpointDistance >= distance + lastSegmentDistance && pinpointDistance < distance + segmentDistance + lastSegmentDistance) {
+					const targetLen = pinpointDistance - distance - lastSegmentDistance;
+					const pinpointX = start.x + deltaX * targetLen / segmentDistance;
+					const pinpointY = start.y + deltaY * targetLen / segmentDistance;
+					pinpointDistances.set(pinpointDistance, {x: pinpointX, y: pinpointY});
+				}
+			}
+
+			return distance + segmentDistance;
 		}, 0);
 
-		return distance / canvas.dimensions.size * canvas.dimensions.distance;
+		lastSegmentDistance += distance;
+		return distance;
 	});
 }
 
