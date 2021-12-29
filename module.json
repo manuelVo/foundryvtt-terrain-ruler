@@ -3,8 +3,8 @@
 	"title": "Terrain Ruler",
 	"description": "Adds a ruler tool that allows you to measure distances taking difficult terrain (provided by the terrain layer module) into account.",
 	"version": "1.5.0",
-	"minimumCoreVersion": "0.8.6",
-	"compatibleCoreVersion": "0.8.9",
+	"minimumCoreVersion": "9",
+	"compatibleCoreVersion": "9",
 	"authors": [
 		{
 			"name": "Manuel Vögele",

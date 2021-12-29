@@ -48,7 +48,7 @@ function hookFunctions() {
 	Canvas.prototype._onDragLeftStart = function (event) {
 		const layer = this.activeLayer
 		const isRuler = game.activeTool === "ruler"
-		const isCtrlRuler = game.keyboard.isCtrl(event) && (layer.name === "TokenLayer")
+		const isCtrlRuler = game.keyboard.isModifierActive(KeyboardManager.MODIFIER_KEYS.CONTROL) && (layer.name === "TokenLayer")
 		if (terrainRuler.active && (isRuler || isCtrlRuler)) {
 			const ruler = this.controls.ruler
 			ruler.isTerrainRuler = true
