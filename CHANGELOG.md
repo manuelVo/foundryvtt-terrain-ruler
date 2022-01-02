@@ -1,3 +1,11 @@
+## 1.5.1
+### Compatibility
+- Terrain Ruler is now compatible with Foundry v9
+
+### Translation
+- Added french translation (thanks to Elfenduil)
+
+
 ## 1.5.0
 ### API changes
 - There is now an API endpoint for pinpointing the pixel coordinates of given distances along a measured path
