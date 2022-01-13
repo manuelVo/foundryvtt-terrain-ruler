@@ -1,6 +1,7 @@
 import {getGridPositionFromPixels} from "./foundry_fixes.js"
 import {calculateVisitedSpaces} from "./foundry_imports.js"
 import {Arc, calcDistance, Circle, Line, Segment, toRad} from "./geometry.js"
+import {DiagonalCostType, DiagonalRule, getMeasurementRules} from "./systems.js"
 
 export function measureDistances(segments, options={}) {
 	if (!options.costFunction)
@@ -27,6 +28,7 @@ export function getCostEnhancedTerrainlayer(x, y, options={}) {
 
 function measureDistancesSquare(segments, options) {
 	const costFunction = options.costFunction;
+	const measurementRules = getMeasurementRules();
 	let noDiagonals = options?.terrainRulerInitialState?.noDiagonals ?? 0;
 
 	return segments.map((segment => {
@@ -48,7 +50,11 @@ function measureDistancesSquare(segments, options) {
 		// If the ruler is vertical just move along the y axis until we reach our goal
 		if (direction.x === 0) {
 			for (let y = current.y;y !== end.y;y += direction.y) {
-				const cost = costFunction(current.x, y + direction.y, options)
+				let cost;
+				if (measurementRules.terrainAppliesOnEnter)
+					cost = costFunction(current.x, y + direction.y, options);
+				else
+					cost = costFunction(current.x, y, options);
 				distance += cost * canvas.dimensions.distance
 				ray.terrainRulerVisitedSpaces.push({x: current.x, y: y + direction.y, distance})
 			}
@@ -62,6 +68,7 @@ function measureDistancesSquare(segments, options) {
 				let nextXStepAt = calculateNextXStep(current, end, line, direction);
 				while (current.y !== end.y) {
 					let isDiagonal = false
+					const previous = {...current}; // Make a shallow copy
 					if (nextXStepAt === current.y) {
 						current.x += direction.x
 						nextXStepAt = calculateNextXStep(current, end, line, direction);
@@ -78,30 +85,37 @@ function measureDistancesSquare(segments, options) {
 					}
 					if (CONFIG.debug.terrainRuler)
 						debugStep(current.x, current.y, 0x008800)
-					const cost = costFunction(current.x, current.y, options)
+					let cost;
+					if (measurementRules.terrainAppliesOnEnter)
+						cost = costFunction(current.x, current.y, options);
+					else
+						cost = costFunction(previous.x, previous.y, options);
 					distance += cost * canvas.dimensions.distance
 
 					// Diagonal Handling
 					if (isDiagonal) {
-						// PF2 diagonal rules
-						if (game.system.id === "pf2e") {
-							distance += noDiagonals * canvas.dimensions.distance
-							noDiagonals = noDiagonals === 1 ? 0 : 1
-						}
-						// Generic 5/10/5 rule
-						else if (canvas.grid.diagonalRule === "5105") {
-							// Every second diagonal costs twice as much
-							noDiagonals += cost
+						if (measurementRules.diagonalRule === DiagonalRule.APPROXIMATION) {
+							if (measurementRules.diagonalCostType === DiagonalCostType.MULTIPLICATIVE)
+								noDiagonals += cost;
+							else
+								noDiagonals += 1;
 
 							// How many second diagonals do we have?
-							const diagonalCost = noDiagonals >> 1 // Integer divison by two
+							const diagonalCost = noDiagonals >> 1; // Integer divison by two
+
 							// Store the remainder
-							noDiagonals %= 2
+							noDiagonals %= 2;
 
 							// Apply the cost for the diagonals
 							distance += diagonalCost * canvas.dimensions.distance
 						}
-						// If neither of the above match treat diagonals as regular steps (5/5/5 rule)
+						else if (measurementRules.diagonalRule === DiagonalRule.MANHATTAN) {
+							if (measurementRules.diagonalCostType == DiagonalCostType.MULTIPLICATIVE)
+								distance += cost * canvas.dimensions.distance;
+							else
+								distance += canvas.dimensions.distance;
+						}
+						// If neither of the above match treat diagonals as regular steps (chebyshev rule - diagonalCostType doesn't matter under this rule)
 					}
 					ray.terrainRulerVisitedSpaces.push({x: current.x, y: current.y, distance})
 				}
@@ -109,7 +123,11 @@ function measureDistancesSquare(segments, options) {
 
 			// Move along the x axis until the target is reached
 			for (let x = current.x;x !== end.x;x += direction.x) {
-				const cost = costFunction(x + direction.x, current.y, options)
+				let cost;
+				if (measurementRules.terrainAppliesOnEnter)
+					cost = costFunction(x + direction.x, current.y, options);
+				else
+					cost = costFunction(x, current.y, options);
 				distance += cost * canvas.dimensions.distance
 				ray.terrainRulerVisitedSpaces.push({x: x + direction.x, y: current.y, distance})
 			}
@@ -122,16 +140,24 @@ function measureDistancesSquare(segments, options) {
 
 function measureDistancesHex(segments, options) {
 	const costFunction = options.costFunction;
+	const measurementRules = getMeasurementRules();
 	return segments.map(segment => {
 		const ray = segment.ray
 		calculateVisitedSpaces(ray)
+		const startSpace = pixelsToGridPosition(ray.A);
+		let previousSpace = startSpace;
 		let distance = 0
 		for (const space of ray.terrainRulerVisitedSpaces) {
-			const cost = costFunction(space.x, space.y, options)
+			let cost;
+			if (measurementRules.terrainAppliesOnEnter)
+				cost = costFunction(space.x, space.y, options);
+			else
+				cost = costFunction(previousSpace.x, previousSpace.y, options);
 			distance += cost * canvas.dimensions.distance
 			space.distance = distance
+			previousSpace = space;
 		}
-		ray.terrainRulerVisitedSpaces.unshift({...pixelsToGridPosition(ray.A), distance: 0})
+		ray.terrainRulerVisitedSpaces.unshift({...startSpace, distance: 0})
 		return distance
 	})
 }
