@@ -1,5 +1,6 @@
 {
 	"terrain-ruler": {
+		"keybinding": "Terrain Ruler umschalten",
 		"terrainRuler": "Messe die Entfernung mit schwierigem Gelände",
 		"settings": {
 			"defaultToggleState": {

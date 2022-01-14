@@ -8,7 +8,7 @@ patchRulerMeasure()
 
 CONFIG.debug.terrainRuler = false
 
-let terrainRulerTool
+export let terrainRulerTool;
 
 Hooks.once("init", () => {
 	registerSettings();
@@ -46,7 +46,7 @@ Hooks.on("getSceneControlButtons", controls => {
 	tokenControls.splice(tokenControls.findIndex(tool => tool.name === "ruler") + 1, 0, terrainRulerTool)
 })
 
-function updateTerrainRulerState(newState) {
+export function updateTerrainRulerState(newState) {
 	terrainRuler.active = newState;
 	if (game.settings.get(settingsKey, "defaultToggleState") === DefaultToggleState.REMEMBER)
 		game.settings.set(settingsKey, "lastToggleState", newState);
@@ -65,15 +65,18 @@ function onDragLeftStart(wrapped, event) {
 	const layer = this.activeLayer;
 	const isRuler = game.activeTool === "ruler";
 	const isCtrlRuler = game.keyboard.isModifierActive(KeyboardManager.MODIFIER_KEYS.CONTROL) && (layer.name === "TokenLayer");
-	if (terrainRuler.active && (isRuler || isCtrlRuler)) {
-		// Show Terrain
-		if (game.settings.get("enhanced-terrain-layer", "show-on-drag"))
-			canvas.terrain.visible = true;
-
-		// Start measuring
+	if (isRuler || isCtrlRuler) {
 		const ruler = this.controls.ruler;
-		ruler.isTerrainRuler = true;
-		return ruler._onDragStart(event);
+		ruler.terrainRulerIsCandidate = true;
+		if (terrainRuler.active) {
+			// Show Terrain
+			if (game.settings.get("enhanced-terrain-layer", "show-on-drag"))
+				canvas.terrain.visible = true;
+
+			// Start measuring
+			ruler.isTerrainRuler = true;
+			return ruler._onDragStart(event);
+		}
 	}
 	return wrapped(event);
 }
@@ -83,6 +86,7 @@ function endMeasurement(wrapped, event) {
 	canvas.terrain.visible = (canvas.terrain.showterrain || ui.controls.activeControl == "terrain");
 
 	this.isTerrainRuler = false;
+	this.terrainRulerIsCandidate = false;
 	return wrapped(event);
 }
 

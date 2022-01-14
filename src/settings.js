@@ -1,3 +1,5 @@
+import { terrainRulerTool, updateTerrainRulerState } from "./main.js";
+
 export const settingsKey = "terrain-ruler";
 
 export const DefaultToggleState = Object.freeze({
@@ -31,6 +33,12 @@ export function registerSettings() {
 		type: Boolean,
 		default: true,
 	});
+
+	game.keybindings.register(settingsKey, "toggleTerrainRuler", {
+		name: "terrain-ruler.keybinding",
+		onDown: toggleTerrainRuler,
+		precedence: -1,
+	});
 }
 
 export function getDefaultToggleState() {
@@ -41,5 +49,20 @@ export function getDefaultToggleState() {
 			return false;
 		case DefaultToggleState.REMEMBER:
 			return game.settings.get(settingsKey, "lastToggleState");
+	}
+}
+
+function toggleTerrainRuler() {
+	const newState = !terrainRuler.active;
+	terrainRulerTool.active = newState;
+	ui.controls.render();
+	updateTerrainRulerState(newState);
+	const ruler = canvas.controls.ruler;
+	if (ruler.terrainRulerIsCandidate) {
+		ruler.isTerrainRuler = newState;
+		if (ruler._state === Ruler.STATES.MEASURING) {
+			const mousePosition = canvas.app.renderer.plugins.interaction.mouse.getLocalPosition(canvas.tokens);
+			ruler.measure(mousePosition);
+		}
 	}
 }

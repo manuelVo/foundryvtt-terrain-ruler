@@ -1,5 +1,6 @@
 {
 	"terrain-ruler": {
+		"keybinding": "Toggle Terrain Ruler",
 		"terrainRuler": "Measure Distance with Difficult Terrain",
 		"settings": {
 			"defaultToggleState": {
