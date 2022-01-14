@@ -1,6 +1,7 @@
 import {libWrapper} from "../lib/libwrapper_shim.js";
 import {getPixelsFromGridPosition} from "./foundry_fixes.js"
 import {measureDistances, getCostEnhancedTerrainlayer} from "./measure.js"
+import {DefaultToggleState, getDefaultToggleState, registerSettings, settingsKey} from "./settings.js";
 
 // Patch the function as early as possible to decrease the chance of anyone having hooked it already
 patchRulerMeasure()
@@ -10,9 +11,10 @@ CONFIG.debug.terrainRuler = false
 let terrainRulerTool
 
 Hooks.once("init", () => {
+	registerSettings();
 	hookFunctions()
 	window.terrainRuler = {
-		active: true,
+		active: getDefaultToggleState(),
 		measureDistances,
 	};
 	Object.defineProperty(game, "terrainRuler", {
@@ -36,13 +38,19 @@ Hooks.on("getSceneControlButtons", controls => {
 			icon: "fas fa-hiking",
 			toggle: true,
 			active: terrainRuler?.active,
-			onClick: toggled => terrainRuler.active = toggled,
+			onClick: updateTerrainRulerState,
 			visible: true,
 		}
 	}
 	const tokenControls = controls.find(group => group.name === "token").tools
 	tokenControls.splice(tokenControls.findIndex(tool => tool.name === "ruler") + 1, 0, terrainRulerTool)
 })
+
+function updateTerrainRulerState(newState) {
+	terrainRuler.active = newState;
+	if (game.settings.get(settingsKey, "defaultToggleState") === DefaultToggleState.REMEMBER)
+		game.settings.set(settingsKey, "lastToggleState", newState);
+}
 
 function hookFunctions() {
 	libWrapper.register("terrain-ruler", "Canvas.prototype._onDragLeftStart", onDragLeftStart, "MIXED");

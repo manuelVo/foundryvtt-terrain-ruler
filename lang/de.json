@@ -1,5 +1,16 @@
 {
 	"terrain-ruler": {
-		"terrainRuler": "Messe die Entfernung mit schwierigem Gelände"
+		"terrainRuler": "Messe die Entfernung mit schwierigem Gelände",
+		"settings": {
+			"defaultToggleState": {
+				"name": "Schalterzustand beim Start",
+				"hint": "Definiert welchen Zustand der Terrain Ruler Schalter beim Start von Foundry haben soll",
+				"choices": {
+					"on": "An",
+					"off": "Aus",
+					"remember": "Letzten Zustand merken"
+				}
+			}
+		}
 	}
 }
