@@ -1,3 +1,16 @@
+## 1.6.0
+### New features
+- When measuring with difficult terrain, the terrain layer will now be shown (if the "Show on Drag" setting is enabled in Enhanced Terrain Layer)
+- There is now a setting that allows to configure the default state of the terrain ruler toggle after joining a game (possible options: on, off, remember last)
+- The Terrain Ruler toggle can now be bound to a key
+
+### Game Systems
+- Terrain Ruler now supports the measuring style of "Legend of the Five Rings 5e"
+
+### Compatibility
+- Drag Ruler now utilizes libwrapper
+
+
 ## 1.5.1
 ### Compatibility
 - Terrain Ruler is now compatible with Foundry v9
