@@ -13,6 +13,7 @@
 		}
 	],
 	"esmodules": [
+		"lib/libwrapper_shim.js",
 		"src/main.js"
 	],
 	"languages": [

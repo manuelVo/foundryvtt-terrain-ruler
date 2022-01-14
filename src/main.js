@@ -1,3 +1,4 @@
+import {libWrapper} from "../lib/libwrapper_shim.js";
 import {getPixelsFromGridPosition} from "./foundry_fixes.js"
 import {measureDistances, getCostEnhancedTerrainlayer} from "./measure.js"
 
@@ -44,67 +45,64 @@ Hooks.on("getSceneControlButtons", controls => {
 })
 
 function hookFunctions() {
-	const originalCanvasOnDragLeftStartHandler = Canvas.prototype._onDragLeftStart
-	Canvas.prototype._onDragLeftStart = function (event) {
-		const layer = this.activeLayer
-		const isRuler = game.activeTool === "ruler"
-		const isCtrlRuler = game.keyboard.isModifierActive(KeyboardManager.MODIFIER_KEYS.CONTROL) && (layer.name === "TokenLayer")
-		if (terrainRuler.active && (isRuler || isCtrlRuler)) {
-			// Show Terrain
-			if (game.settings.get("enhanced-terrain-layer", "show-on-drag"))
-				canvas.terrain.visible = true;
+	libWrapper.register("terrain-ruler", "Canvas.prototype._onDragLeftStart", onDragLeftStart, "MIXED");
+	libWrapper.register("terrain-ruler", "Ruler.prototype._endMeasurement", endMeasurement, "WRAPPER");
+	libWrapper.register("terrain-ruler", "Ruler.prototype._highlightMeasurement", highlightMeasurement, "MIXED");
+	libWrapper.register("terrain-ruler", "Ruler.prototype.toJSON", toJSON, "WRAPPER");
+	libWrapper.register("terrain-ruler", "Ruler.prototype.update", rulerUpdate, "WRAPPER");
+	libWrapper.register("terrain-ruler", "GridLayer.prototype.measureDistances", gridLayerMeasureDistances, "MIXED");
+}
 
-			// Start measuring
-			const ruler = this.controls.ruler
-			ruler.isTerrainRuler = true
-			return ruler._onDragStart(event)
-		}
-		return originalCanvasOnDragLeftStartHandler.call(this, event)
+function onDragLeftStart(wrapped, event) {
+	const layer = this.activeLayer;
+	const isRuler = game.activeTool === "ruler";
+	const isCtrlRuler = game.keyboard.isModifierActive(KeyboardManager.MODIFIER_KEYS.CONTROL) && (layer.name === "TokenLayer");
+	if (terrainRuler.active && (isRuler || isCtrlRuler)) {
+		// Show Terrain
+		if (game.settings.get("enhanced-terrain-layer", "show-on-drag"))
+			canvas.terrain.visible = true;
+
+		// Start measuring
+		const ruler = this.controls.ruler;
+		ruler.isTerrainRuler = true;
+		return ruler._onDragStart(event);
 	}
+	return wrapped(event);
+}
 
-	const originalEndMeasurementHandler = Ruler.prototype._endMeasurement
-	Ruler.prototype._endMeasurement = function (event) {
-		// Reset terrain visiblility to default state
-		canvas.terrain.visible = (canvas.terrain.showterrain || ui.controls.activeControl == "terrain");
+function endMeasurement(wrapped, event) {
+	// Reset terrain visiblility to default state
+	canvas.terrain.visible = (canvas.terrain.showterrain || ui.controls.activeControl == "terrain");
 
-		this.isTerrainRuler = false
-		return originalEndMeasurementHandler.call(this)
+	this.isTerrainRuler = false;
+	return wrapped(event);
+}
+
+function highlightMeasurement(wrapped, ray) {
+	if (!ray.terrainRulerVisitedSpaces) {
+		return wrapped(ray);
 	}
-
-	const originalRulerHighlightMeasurement = Ruler.prototype._highlightMeasurement
-	Ruler.prototype._highlightMeasurement = function (ray) {
-		if (ray.terrainRulerVisitedSpaces)
-			highlightMeasurement.call(this, ray)
-		else
-			originalRulerHighlightMeasurement.call(this, ray)
-	}
-
-	const originalRulerToJSON = Ruler.prototype.toJSON
-	Ruler.prototype.toJSON = function () {
-		const json = originalRulerToJSON.call(this)
-		json["isTerrainRuler"] = this.isTerrainRuler
-		return json
-	}
-
-	const originalRulerUpdate = Ruler.prototype.update
-	Ruler.prototype.update = function (data) {
-		this.isTerrainRuler = data.isTerrainRuler
-		originalRulerUpdate.call(this, data)
-	}
-
-	const originalGridLayerMeasureDistances = GridLayer.prototype.measureDistances
-	GridLayer.prototype.measureDistances = function (segments, options={}) {
-		if (!options.enableTerrainRuler)
-			return originalGridLayerMeasureDistances.call(this, segments, options)
-		return measureDistances(segments)
+	for (const space of ray.terrainRulerVisitedSpaces) {
+		const [x, y] = getPixelsFromGridPosition(space.x, space.y);
+		canvas.grid.highlightPosition(this.name, {x, y, color: this.color});
 	}
 }
 
-function highlightMeasurement(ray) {
-	for (const space of ray.terrainRulerVisitedSpaces) {
-		const [x, y] = getPixelsFromGridPosition(space.x, space.y);
-		canvas.grid.highlightPosition(this.name, {x, y, color: this.color})
-	}
+function toJSON(wrapped) {
+	const json = wrapped();
+	json["isTerrainRuler"] = this.isTerrainRuler;
+	return json;
+}
+
+function rulerUpdate(wrapped, data) {
+	this.isTerrainRuler = data.isTerrainRuler;
+	wrapped(data);
+}
+
+function gridLayerMeasureDistances(wrapped, segments, options={}) {
+	if (!options.enableTerrainRuler)
+		return wrapped(segments, options);
+	return measureDistances(segments);
 }
 
 function strInsertAfter(haystack, needle, strToInsert) {
