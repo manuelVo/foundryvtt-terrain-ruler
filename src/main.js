@@ -50,6 +50,11 @@ function hookFunctions() {
 		const isRuler = game.activeTool === "ruler"
 		const isCtrlRuler = game.keyboard.isModifierActive(KeyboardManager.MODIFIER_KEYS.CONTROL) && (layer.name === "TokenLayer")
 		if (terrainRuler.active && (isRuler || isCtrlRuler)) {
+			// Show Terrain
+			if (game.settings.get("enhanced-terrain-layer", "show-on-drag"))
+				canvas.terrain.visible = true;
+
+			// Start measuring
 			const ruler = this.controls.ruler
 			ruler.isTerrainRuler = true
 			return ruler._onDragStart(event)
@@ -59,6 +64,9 @@ function hookFunctions() {
 
 	const originalEndMeasurementHandler = Ruler.prototype._endMeasurement
 	Ruler.prototype._endMeasurement = function (event) {
+		// Reset terrain visiblility to default state
+		canvas.terrain.visible = (canvas.terrain.showterrain || ui.controls.activeControl == "terrain");
+
 		this.isTerrainRuler = false
 		return originalEndMeasurementHandler.call(this)
 	}
