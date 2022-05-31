@@ -117,11 +117,6 @@ function gridLayerMeasureDistances(wrapped, segments, options={}) {
 	return measureDistances(segments);
 }
 
-function strInsertAfter(haystack, needle, strToInsert) {
-	const pos = haystack.indexOf(needle) + needle.length
-	return haystack.slice(0, pos) + strToInsert + haystack.slice(pos)
-}
-
 function strInsertBefore(haystack, needle, strToInsert) {
 	const pos = haystack.indexOf(needle);
 	if (pos === -1)
@@ -130,18 +125,43 @@ function strInsertBefore(haystack, needle, strToInsert) {
 }
 
 function patchRulerMeasure() {
-	let code = Ruler.prototype.measure.toString()
-	// Replace CRLF with LF in case foundry.js has CRLF for some reason
-	code = code.replace(/\r\n/g, "\n")
-	// Remove function signature and closing curly bracket (those are on the first and last line)
-	code = code.slice(code.indexOf("\n"), code.lastIndexOf("\n"))
+	for (let proto = Ruler.prototype; proto !== null; proto = Object.getPrototypeOf(proto)) {
+		if (proto.constructor.name !== "Ruler" || proto.measure === undefined) {
+			continue;
+		}
+		let code = proto.measure.toString();
 
-	code = strInsertAfter(code, "segments, {gridSpaces", ", enableTerrainRuler: this.isTerrainRuler")
+		// Remove function signature and closing curly bracket. Finds the first curly bracket after
+		// the first closing parenthesis. Here the latter is assumed to close the parameter list
+		// of the function.
+		const signatureMatch = code.match(/^.*?\).*?\{/);
+		if (signatureMatch === null) {
+			continue;
+		}
+		code = code.slice(signatureMatch[0].length, code.lastIndexOf("}"));
 
-	// "Hex Token Size Support" support
-	code = strInsertBefore(code, "findMovementToken", "CONFIG.hexSizeSupport.");
-	code = strInsertBefore(code, "getEvenSnappingFlag", "CONFIG.hexSizeSupport.");
-	code = strInsertBefore(code, "findVertexSnapPoint", "CONFIG.hexSizeSupport.");
+		// Allow any number of spaces between parts to account for minified or otherwise reformatted
+		// code.
+		const match = code.match(/segments\s*,\s*\{\s*gridSpaces/);
+		if (match === null) {
+			continue;
+		}
+		const idx = match.index + match[0].length;
+		code = code.slice(0, idx) + ", enableTerrainRuler: this.isTerrainRuler" + code.slice(idx);
 
-	Ruler.prototype.measure = new Function("destination", "{gridSpaces=true}={}", code)
+		// "Hex Token Size Support" support
+		code = strInsertBefore(code, "findMovementToken", "CONFIG.hexSizeSupport.");
+		code = strInsertBefore(code, "getEvenSnappingFlag", "CONFIG.hexSizeSupport.");
+		code = strInsertBefore(code, "findVertexSnapPoint", "CONFIG.hexSizeSupport.");
+
+		try {
+			proto.measure = new Function("destination", "{gridSpaces=true}={}", code);
+		} catch {
+			continue;
+		}
+
+		return;
+	}
+
+	throw new Error("terrain-ruler: failed to patch Ruler.measure");
 }
