@@ -17,12 +17,6 @@ Hooks.once("init", () => {
 		active: getDefaultToggleState(),
 		measureDistances,
 	};
-	Object.defineProperty(game, "terrainRuler", {
-		get: function() {
-			console.warn("Terrain Ruler | `game.terrainRuler` is deprecated and will be removed in a future version. Use `terrainRuler` or `window.terrainRuler` instead.");
-			return window.terrainRuler;
-		}
-	});
 })
 
 Hooks.once("ready", () => {
