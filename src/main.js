@@ -3,9 +3,6 @@ import {getPixelsFromGridPosition} from "./foundry_fixes.js"
 import {measureDistances, getCostEnhancedTerrainlayer} from "./measure.js"
 import {DefaultToggleState, getDefaultToggleState, registerSettings, settingsKey} from "./settings.js";
 
-// Patch the function as early as possible to decrease the chance of anyone having hooked it already
-patchRulerMeasure()
-
 CONFIG.debug.terrainRuler = false
 
 export let terrainRulerTool;
@@ -23,7 +20,7 @@ Hooks.once("ready", () => {
 	window.terrainRuler.getCost = getCostEnhancedTerrainlayer;
 })
 
-// Inject Terrain Ruler into
+// Inject Terrain Ruler into the scene control buttons
 Hooks.on("getSceneControlButtons", controls => {
 	if (!terrainRulerTool) {
 		terrainRulerTool = {
@@ -48,11 +45,11 @@ export function updateTerrainRulerState(newState) {
 
 function hookFunctions() {
 	libWrapper.register("terrain-ruler", "Canvas.prototype._onDragLeftStart", onDragLeftStart, "MIXED");
+	libWrapper.register("terrain-ruler", "Ruler.prototype._computeDistance", computeDistance, "MIXED");
 	libWrapper.register("terrain-ruler", "Ruler.prototype._endMeasurement", endMeasurement, "WRAPPER");
-	libWrapper.register("terrain-ruler", "Ruler.prototype._highlightMeasurement", highlightMeasurement, "MIXED");
+	libWrapper.register("terrain-ruler", "Ruler.prototype._highlightMeasurementSegment", highlightMeasurementSegment, "MIXED");
 	libWrapper.register("terrain-ruler", "Ruler.prototype.toJSON", toJSON, "WRAPPER");
 	libWrapper.register("terrain-ruler", "Ruler.prototype.update", rulerUpdate, "WRAPPER");
-	libWrapper.register("terrain-ruler", "GridLayer.prototype.measureDistances", gridLayerMeasureDistances, "MIXED");
 }
 
 function onDragLeftStart(wrapped, event) {
@@ -75,6 +72,24 @@ function onDragLeftStart(wrapped, event) {
 	return wrapped(event);
 }
 
+function computeDistance(wrapped, gridSpaces) {
+	if (this.isTerrainRuler) {
+		const distances = measureDistances(this.segments, {gridSpaces});
+		console.warn(distances);
+		let totalDistance = 0;
+		for (let [i, d] of distances.entries()) {
+			totalDistance += d;
+			let s = this.segments[i];
+			s.last = i === (this.segments.length - 1);
+			s.distance = d;
+			s.text = this._getSegmentLabel(s, totalDistance);
+		}
+	}
+	else {
+		wrapped(gridSpaces);
+	}
+}
+
 function endMeasurement(wrapped, event) {
 	// Reset terrain visiblility to default state
 	canvas.terrain.visible = (canvas.terrain.showterrain || ui.controls.activeControl == "terrain");
@@ -84,9 +99,10 @@ function endMeasurement(wrapped, event) {
 	return wrapped(event);
 }
 
-function highlightMeasurement(wrapped, ray) {
+function highlightMeasurementSegment(wrapped, segment) {
+	const ray = segment.ray;
 	if (!ray.terrainRulerVisitedSpaces) {
-		return wrapped(ray);
+		return wrapped(segment);
 	}
 	for (const space of ray.terrainRulerVisitedSpaces) {
 		const [x, y] = getPixelsFromGridPosition(space.x, space.y);
@@ -103,39 +119,4 @@ function toJSON(wrapped) {
 function rulerUpdate(wrapped, data) {
 	this.isTerrainRuler = data.isTerrainRuler;
 	wrapped(data);
-}
-
-function gridLayerMeasureDistances(wrapped, segments, options={}) {
-	if (!options.enableTerrainRuler)
-		return wrapped(segments, options);
-	return measureDistances(segments);
-}
-
-function strInsertAfter(haystack, needle, strToInsert) {
-	const pos = haystack.indexOf(needle) + needle.length
-	return haystack.slice(0, pos) + strToInsert + haystack.slice(pos)
-}
-
-function strInsertBefore(haystack, needle, strToInsert) {
-	const pos = haystack.indexOf(needle);
-	if (pos === -1)
-		return haystack
-	return haystack.slice(0, pos) + strToInsert + haystack.slice(pos);
-}
-
-function patchRulerMeasure() {
-	let code = Ruler.prototype.measure.toString()
-	// Replace CRLF with LF in case foundry.js has CRLF for some reason
-	code = code.replace(/\r\n/g, "\n")
-	// Remove function signature and closing curly bracket (those are on the first and last line)
-	code = code.slice(code.indexOf("\n"), code.lastIndexOf("\n"))
-
-	code = strInsertAfter(code, "segments, {gridSpaces", ", enableTerrainRuler: this.isTerrainRuler")
-
-	// "Hex Token Size Support" support
-	code = strInsertBefore(code, "findMovementToken", "CONFIG.hexSizeSupport.");
-	code = strInsertBefore(code, "getEvenSnappingFlag", "CONFIG.hexSizeSupport.");
-	code = strInsertBefore(code, "findVertexSnapPoint", "CONFIG.hexSizeSupport.");
-
-	Ruler.prototype.measure = new Function("destination", "{gridSpaces=true}={}", code)
 }

@@ -1,10 +1,12 @@
 {
-	"name": "terrain-ruler",
+	"id": "terrain-ruler",
 	"title": "Terrain Ruler",
 	"description": "Adds a ruler tool that allows you to measure distances taking difficult terrain (provided by the terrain layer module) into account.",
 	"version": "1.6.0",
-	"minimumCoreVersion": "9",
-	"compatibleCoreVersion": "9",
+	"compatibility": {
+		"minimum": "10",
+		"verified": "10"
+	},
 	"authors": [
 		{
 			"name": "Manuel Vögele",
@@ -33,12 +35,15 @@
 			"path": "lang/fr.json"
 		}
 	],
-	"dependencies": [
-		{
-			"name": "enhanced-terrain-layer",
-			"manifest": "https://github.com/ironmonk88/enhanced-terrain-layer/releases/latest/download/module.json"
-		}
-	],
+	"relationships": {
+		"requires": [
+			{
+				"id": "enhanced-terrain-layer",
+				"type": "module",
+				"manifest": "https://github.com/ironmonk88/enhanced-terrain-layer/releases/latest/download/module.json"
+			}
+		]
+	},
 	"url": "https://github.com/manuelVo/foundryvtt-terrain-ruler",
 	"download": "https://github.com/manuelVo/foundryvtt-terrain-ruler/archive/v1.6.0.zip",
 	"manifest": "https://raw.githubusercontent.com/manuelVo/foundryvtt-terrain-ruler/master/module.json",
