@@ -75,7 +75,6 @@ function onDragLeftStart(wrapped, event) {
 function computeDistance(wrapped, gridSpaces) {
 	if (this.isTerrainRuler) {
 		const distances = measureDistances(this.segments, {gridSpaces});
-		console.warn(distances);
 		let totalDistance = 0;
 		for (let [i, d] of distances.entries()) {
 			totalDistance += d;
