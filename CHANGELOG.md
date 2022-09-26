@@ -1,3 +1,11 @@
+## 1.7.0
+### Breaking changes
+- The deprecated `game.terrainRuler` API endpoint is now being removed. If your module is still using it, switch over to `terrainRuler`.
+
+### Compatibility
+- Terrain Ruler is now compatible with Foundry v10
+
+
 ## 1.6.0
 ### New features
 - When measuring with difficult terrain, the terrain layer will now be shown (if the "Show on Drag" setting is enabled in Enhanced Terrain Layer)
