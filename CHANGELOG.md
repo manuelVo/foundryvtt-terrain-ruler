@@ -1,3 +1,9 @@
+## 1.7.1
+### Bug fixes
+- Fixed a bug where Ctrl+Drag measurements wouldn't respect difficult terrain in some game systems
+- Measuring with the ruler now shows the terrain as it should
+- Removed a nonsensical varning that was showing up in the console
+
 ## 1.7.0
 ### Breaking changes
 - The deprecated `game.terrainRuler` API endpoint is now being removed. If your module is still using it, switch over to `terrainRuler`.
