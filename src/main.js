@@ -55,7 +55,7 @@ function hookFunctions() {
 function onDragLeftStart(wrapped, event) {
 	const layer = this.activeLayer;
 	const isRuler = game.activeTool === "ruler";
-	const isCtrlRuler = game.keyboard.isModifierActive(KeyboardManager.MODIFIER_KEYS.CONTROL) && (layer.name === "TokenLayer");
+	const isCtrlRuler = game.keyboard.isModifierActive(KeyboardManager.MODIFIER_KEYS.CONTROL) && (layer instanceof TokenLayer);
 	if (isRuler || isCtrlRuler) {
 		const ruler = this.controls.ruler;
 		ruler.terrainRulerIsCandidate = true;
