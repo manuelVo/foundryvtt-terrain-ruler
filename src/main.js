@@ -60,9 +60,9 @@ function onDragLeftStart(wrapped, event) {
 		const ruler = this.controls.ruler;
 		ruler.terrainRulerIsCandidate = true;
 		if (terrainRuler.active) {
-			// Show Terrain
-			if (game.settings.get("enhanced-terrain-layer", "show-on-drag"))
-				canvas.terrain.visible = true;
+			// Show terrain if the show on drag setting is enabled
+			canvas.terrain._tokenDrag = true; 
+			canvas.terrain.refreshVisibility();
 
 			// Start measuring
 			ruler.isTerrainRuler = true;
@@ -91,7 +91,8 @@ function computeDistance(wrapped, gridSpaces) {
 
 function endMeasurement(wrapped, event) {
 	// Reset terrain visiblility to default state
-	canvas.terrain.visible = (canvas.terrain.showterrain || ui.controls.activeControl == "terrain");
+	canvas.terrain._tokenDrag = false; 
+	canvas.terrain.refreshVisibility();
 
 	this.isTerrainRuler = false;
 	this.terrainRulerIsCandidate = false;
