@@ -33,6 +33,11 @@ function measureDistancesSquare(segments, options) {
 
 	return segments.map((segment => {
 		const ray = segment.ray
+		// Workaround for https://github.com/foundryvtt/foundryvtt/issues/8370
+		if (ray.B === undefined) {
+			return NaN;
+		}
+
 		ray.terrainRulerVisitedSpaces = []
 		const start = pixelsToGridPosition(ray.A)
 		const end = pixelsToGridPosition(ray.B)
