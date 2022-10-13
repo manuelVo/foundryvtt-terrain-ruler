@@ -1,3 +1,8 @@
+## 1.7.2
+### Bug fixes
+- Added a workaround for a Foundry VTT bug that could cause Terrain Ruler to freeze the application. The ruler may still behave incorrectly when the bug occurs, but at least the software should no longer freeze.
+
+
 ## 1.7.1
 ### Bug fixes
 - Fixed a bug where Ctrl+Drag measurements wouldn't respect difficult terrain in some game systems
