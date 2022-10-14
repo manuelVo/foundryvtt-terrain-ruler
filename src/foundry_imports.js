@@ -1,7 +1,7 @@
 // This is a modified version of Ruler._highlightMeasurement from 0.7.9
 export function calculateVisitedSpaces(ray) {
 	ray.terrainRulerVisitedSpaces = []
-	const spacer = canvas.scene.data.gridType === CONST.GRID_TYPES.SQUARE ? 1.41 : 1;
+	const spacer = canvas.grid.type === CONST.GRID_TYPES.SQUARE ? 1.41 : 1;
 	const nMax = Math.max(Math.floor(ray.distance / (spacer * Math.min(canvas.grid.w, canvas.grid.h))), 1);
 	const tMax = Array.fromRange(nMax + 1).map(t => t / nMax);
 
