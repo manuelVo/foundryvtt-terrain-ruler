@@ -1,5 +1,17 @@
 {
 	"terrain-ruler": {
-		"terrainRuler": "Mesurer la distance avec un terrain difficile"
+		"terrainRuler": "Mesurer la distance avec un terrain difficile",
+		"keybinding": "Activer Terrain ruler",
+		"settings": {
+			"defaultToggleState": {
+				"name": "État d'activation par défaut",
+				"hint": "L'état de Terrain ruler s'active après avoir rejoint la partie.",
+				"choices": {
+					"on": "Actif",
+					"off": "Inactif",
+					"remember": "Se souvenir du dernier état"
+				}
+			}
+		}
 	}
 }
