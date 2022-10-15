@@ -5,7 +5,7 @@
 		"settings": {
 			"defaultToggleState": {
 				"name": "Default Toggle State",
-				"hint": "The state of the terrian ruler toggle after joining the game",
+				"hint": "The state of the terrian ruler toggle after joining the game.",
 				"choices": {
 					"on": "On",
 					"off": "Off",
