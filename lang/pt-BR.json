@@ -1,0 +1,17 @@
+{
+	"terrain-ruler": {
+		"keybinding": "Alternar régua de terreno",
+		"terrainRuler": "Medir a distância com terreno difícil",
+		"settings": {
+			"defaultToggleState": {
+				"name": "Estado de alternância padrão",
+				"hint": "O estado da régua do terreno alterna após entrar no jogo.",
+				"choices": {
+					"remember": "Lembrar último estado",
+					"on": "Ligado",
+					"off": "Desligado"
+				}
+			}
+		}
+	}
+}
