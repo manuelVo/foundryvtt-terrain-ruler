@@ -1,3 +1,17 @@
+## 1.7.3
+### Bug fixes
+- Restored functionality on gridless scenes
+
+### Compatibility
+- Removed several deprecation warnings that were emitted by foundry
+
+### Translation
+- Added Portugese (Brazil) translation (thanks eunaumtenhoid)
+- Updated French translation (thanks vincent)
+- Updated German translation
+- Updated English strings
+
+
 ## 1.7.2
 ### Bug fixes
 - Added a workaround for a Foundry VTT bug that could cause Terrain Ruler to freeze the application. The ruler may still behave incorrectly when the bug occurs, but at least the software should no longer freeze.
