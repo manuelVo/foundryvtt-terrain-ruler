@@ -224,33 +224,22 @@ function measureDistancesGridless(segments, options) {
 
 // Collects the edges of all sources of terrain in one array
 function collectTerrainEdges() {
-	const terrainEdges = canvas.terrain.placeables.reduce((edges, terrain) => edges.concat(getEdgesFromPolygon(terrain)), []);
-	const templateEdges = canvas.templates.placeables.reduce((edges, template) => {
-		const shape = template.shape;
-		if (template.data.t === "cone") {
-			const radius = template.data.distance * canvas.dimensions.size / canvas.dimensions.distance;
-			const direction = toRad(template.data.direction + 180);
-			const angle = toRad(template.data.angle);
-			const startDirection = direction - angle / 2;
-			const endDirection = direction + angle / 2;
-			edges = edges.concat([
-				new Arc({x: template.data.x, y: template.data.y}, radius, direction, angle),
-				Segment.fromPoints({x: template.data.x, y: template.data.y}, {x: template.data.x - Math.cos(startDirection) * radius, y: template.data.y - Math.sin(startDirection) * radius}),
-				Segment.fromPoints({x: template.data.x, y: template.data.y}, {x: template.data.x - Math.cos(endDirection) * radius, y: template.data.y - Math.sin(endDirection) * radius}),
-			]);
-		}
-		else if (shape instanceof PIXI.Polygon) {
-			edges = edges.concat(getEdgesFromPolygon(template));
+	const terrain = canvas.terrain.listAllTerrain();
+	const edges = terrain.reduce((edges, terrainInfo) => {
+		const shape = terrainInfo.shape;
+		const object = terrainInfo.object;
+		if (shape instanceof PIXI.Polygon) {
+			edges = edges.concat(getEdgesFromPolygon(shape, object.x, object.y));
 		}
 		else if (shape instanceof PIXI.Circle) {
-			edges.push(new Circle({x: template.x + shape.x, y: template.y + shape.y}, shape.radius));
+			edges.push(new Circle({x: object.x + shape.x, y: object.y + shape.y}, shape.radius));
 		}
-		else if (shape instanceof NormalizedRectangle) {
+		else if (shape instanceof PIXI.Rectangle) {
 			const points = [
-				{x: template.x + shape.x, y: template.y + shape.y},
-				{x: template.x + shape.x + shape.width, y: template.y + shape.y},
-				{x: template.x + shape.x + shape.width, y: template.y + shape.y + shape.height},
-				{x: template.x + shape.x, y: template.y + shape.y + shape.height},
+				{x: object.x + shape.x, y: object.y + shape.y},
+				{x: object.x + shape.x + shape.width, y: object.y + shape.y},
+				{x: object.x + shape.x + shape.width, y: object.y + shape.y + shape.height},
+				{x: object.x + shape.x, y: object.y + shape.y + shape.height},
 			];
 			edges = edges.concat([
 				Segment.fromPoints(points[0], points[1]),
@@ -260,19 +249,20 @@ function collectTerrainEdges() {
 			]);
 		}
 		else {
-			console.warn("Terrain Ruler | Unkown measurement template shape ignored", shape);
+			console.warn("Terrain Ruler | Terrain with unknown shape is being ignored", shape);
 		}
 		return edges;
 	}, []);
-	return terrainEdges.concat(templateEdges);
+	return edges;
 }
 
-function getEdgesFromPolygon(poly) {
-	const points = poly.shape.points;
+function getEdgesFromPolygon(polygon, x, y) {
+	const points = polygon.points;
 	const edges = [];
-	for (let i = 0;i * 2 < poly.shape.points.length - 2;i++) {
-		edges.push(Segment.fromPoints({x: poly.x + points[i * 2], y: poly.y + points[i * 2 + 1]}, {x: poly.x + points[i * 2 + 2], y: poly.y + points[i * 2 + 3]}));
+	for (let i = 0;i * 2 < points.length - 2;i++) {
+		edges.push(Segment.fromPoints({x: x + points[i * 2], y: y + points[i * 2 + 1]}, {x: x + points[i * 2 + 2], y: y + points[i * 2 + 3]}));
 	}
+	edges.push(Segment.fromPoints({x: x + points[points.length - 2], y: y + points[points.length - 1]}, {x: x + points[0], y: y + points[1]}));
 	return edges;
 }
 
