@@ -34,7 +34,7 @@ function measureDistancesSquare(segments, options) {
 	return segments.map((segment => {
 		const ray = segment.ray
 		// Workaround for https://github.com/foundryvtt/foundryvtt/issues/8370
-		if (ray.B === undefined) {
+		if (ray.B === undefined || Number.isNaN(ray.B.x) || Number.isNaN(ray.B.y)) {
 			return NaN;
 		}
 
