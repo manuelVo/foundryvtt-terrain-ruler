@@ -1,3 +1,8 @@
+## 1.7.4
+### Bug fixes
+- Added a workaround for a Foundry VTT bug that could cause Terrain Ruler to freeze the application. The ruler may still behave incorrectly when the bug occurs, but at least the software should no longer freeze. (thanks JDCalvert!)
+
+
 ## 1.7.3
 ### Bug fixes
 - Restored functionality on gridless scenes
