@@ -1,1 +1,17 @@
-{}
+{
+	"terrain-ruler": {
+		"terrainRuler": "测量距离时考虑困难地形",
+		"settings": {
+			"defaultToggleState": {
+				"name": "默认启用状态",
+				"hint": "加入游戏后，地形尺子是否默认启用。",
+				"choices": {
+					"on": "启用",
+					"off": "关闭",
+					"remember": "记忆上一次的状态"
+				}
+			}
+		},
+		"keybinding": "启用地形尺子"
+	}
+}
