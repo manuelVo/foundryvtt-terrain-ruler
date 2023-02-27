@@ -101,7 +101,7 @@ function measureDistancesSquare(segments, options) {
 					if (isDiagonal) {
 						if (measurementRules.diagonalRule === DiagonalRule.APPROXIMATION) {
 							if (measurementRules.diagonalCostType === DiagonalCostType.MULTIPLICATIVE)
-								noDiagonals += cost;
+								noDiagonals += (cost - 1);
 							else
 								noDiagonals += 1;
 
