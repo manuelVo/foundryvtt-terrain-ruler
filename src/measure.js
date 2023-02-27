@@ -100,10 +100,7 @@ function measureDistancesSquare(segments, options) {
 					// Diagonal Handling
 					if (isDiagonal) {
 						if (measurementRules.diagonalRule === DiagonalRule.APPROXIMATION) {
-							if (measurementRules.diagonalCostType === DiagonalCostType.MULTIPLICATIVE)
-								noDiagonals += cost;
-							else
-								noDiagonals += 1;
+                                                        noDiagonals += 1;
 
 							// How many second diagonals do we have?
 							const diagonalCost = noDiagonals >> 1; // Integer divison by two
