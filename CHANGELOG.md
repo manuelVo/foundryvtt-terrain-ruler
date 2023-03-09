@@ -1,3 +1,8 @@
+## 1.7.6
+### Translation
+- Foundry should now be able to detect the Simplified Chenese translation properly (thanks AlphaStarguide!)
+
+
 ## 1.7.5
 ### Translation
 - Added Chinese (Simplified) translation (thanks sakusenerio!)
