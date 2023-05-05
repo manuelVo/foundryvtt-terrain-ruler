@@ -43,6 +43,11 @@
 			"lang": "cn",
 			"name": "中文（简体）",
 			"path": "lang/zh_Hans.json"
+		},
+		{
+			"lang": "pl",
+			"name": "polski",
+			"path": "lang/pl.json"
 		}
 	],
 	"relationships": {
