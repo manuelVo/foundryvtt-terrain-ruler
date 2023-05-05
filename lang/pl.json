@@ -1,1 +1,17 @@
-{}
+{
+	"terrain-ruler": {
+		"settings": {
+			"defaultToggleState": {
+				"name": "Domyślny stan przełącznika",
+				"hint": "Stan przełącznika Terrian Ruler po dołączeniu do gry.",
+				"choices": {
+					"on": "Włączony",
+					"off": "Wyłączony",
+					"remember": "Zapamiętaj ostatni stan"
+				}
+			}
+		},
+		"keybinding": "Przełącznik Terrain Ruler",
+		"terrainRuler": "Mierzenie odległości na trudnym terenie"
+	}
+}
