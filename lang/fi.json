@@ -1,1 +1,17 @@
-{}
+{
+	"terrain-ruler": {
+		"keybinding": "Maastoviivain päälle/pois",
+		"terrainRuler": "Ota huomioon vaikea maasto",
+		"settings": {
+			"defaultToggleState": {
+				"name": "Oletustila",
+				"hint": "Maastoviivaimen tila peliin liittymisen jälkeen.",
+				"choices": {
+					"on": "Päällä",
+					"off": "Pois",
+					"remember": "Muista viimeinen tila"
+				}
+			}
+		}
+	}
+}
