@@ -81,8 +81,8 @@ function computeDistance(wrapped, gridSpaces) {
 			let s = this.segments[i];
 			s.last = i === (this.segments.length - 1);
 			s.distance = d;
-			s.text = this._getSegmentLabel(s, totalDistance);
 		}
+                this.totalDistance = totalDistance;
 	}
 	else {
 		wrapped(gridSpaces);
