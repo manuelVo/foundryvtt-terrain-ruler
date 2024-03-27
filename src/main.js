@@ -83,6 +83,7 @@ function computeDistance(wrapped, gridSpaces) {
 			s.distance = d;
 			s.text = this._getSegmentLabel(s, totalDistance);
 		}
+		this.totalDistance = totalDistance;
 	}
 	else {
 		wrapped(gridSpaces);
